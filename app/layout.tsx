@@ -14,16 +14,26 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Project ATALAYA",
-  description: "The Autonomous Low-Poly Island Life Engine.",
+  description: "Autonomous Low-Poly Island Life Engine",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body
+        className="min-h-full flex flex-col overflow-hidden bg-neutral-950"
+        suppressHydrationWarning
+      >
+        {children}
+      </body>
     </html>
   );
 }
