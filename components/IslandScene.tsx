@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import React, { useMemo } from 'react';
 import * as THREE from 'three';
 import { useGameStore } from '@/lib/store';
 import { DayNightCycle } from './DayNightCycle';
 import { WorldStructures } from './WorldStructures';
+import { SurvivorMesh } from '@/components/SurvivorMesh';
 
 export function IslandScene() {
   const nodes = useGameStore((s) => s.nodes);
@@ -33,18 +33,8 @@ export function IslandScene() {
 
   return (
     <group>
-    {/* Dynamic Celestial Rig & Sky Dome */}
+      {/* Dynamic Celestial Rig & Sky Dome */}
       <DayNightCycle cycleDurationSeconds={180} />
-
-      {/* Directional Sun */}
-      {/* <directionalLight
-        position={[15, 20, 10]}
-        intensity={1.8}
-        castShadow
-        shadow-mapSize={[1024, 1024]}
-        shadow-bias={-0.001}
-      />
-      <ambientLight intensity={0.4} /> */}
 
       {/* Main Island Hex Cylinder */}
       <mesh geometry={terrainGeometry} receiveShadow castShadow position={[0, -1.5, 0]}>
@@ -86,41 +76,11 @@ export function IslandScene() {
         </group>
       ))}
 
+      {/* Dynamic Structures Built by Agent */}
       <WorldStructures />
 
+      {/* Articulated Procedural Survivor */}
       <SurvivorMesh />
-    </group>
-  );
-}
-
-function SurvivorMesh() {
-  const meshRef = useRef<THREE.Group>(null);
-  const targetPos = useGameStore((s) => s.targetPosition);
-  const updateStorePos = useGameStore((s) => s.updateSurvivorPosition);
-
-  // High-performance smooth pathing interpolation
-  useFrame((_, delta) => {
-    if (!meshRef.current) return;
-
-    if (targetPos) {
-      const targetVec = new THREE.Vector3(...targetPos);
-      const currentPos = meshRef.current.position;
-
-      if (currentPos.distanceTo(targetVec) > 0.05) {
-        currentPos.lerp(targetVec, delta * 2.5);
-        meshRef.current.lookAt(targetVec.x, currentPos.y, targetVec.z);
-        updateStorePos([currentPos.x, currentPos.y, currentPos.z]);
-      }
-    }
-  });
-
-  return (
-    <group ref={meshRef} position={[0, 0, 0]}>
-      {/* Low-poly stylized character placeholder */}
-      <mesh castShadow position={[0, 0.75, 0]}>
-        <capsuleGeometry args={[0.3, 0.6, 4, 8]} />
-        <meshStandardMaterial color="#E07A5F" flatShading />
-      </mesh>
     </group>
   );
 }

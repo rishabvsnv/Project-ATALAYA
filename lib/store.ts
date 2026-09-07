@@ -1,8 +1,9 @@
 import { create } from 'zustand';
-import { validateAndDeductRecipe, Recipe } from '@/lib/recipes';
+import { validateAndDeductRecipe } from '@/lib/recipes';
 
 export type SimulationSpeed = 1 | 2 | 5;
 export type TimePhase = 'Dawn' | 'Day' | 'Dusk' | 'Night';
+export type SurvivorAnimState = 'IDLE' | 'WALK' | 'CHOP' | 'SLEEP';
 
 export interface WorldStructure {
   id: string;
@@ -24,30 +25,26 @@ export interface IslandNode {
 }
 
 export interface GameState {
-  // World & Time
   day: number;
   timeOfDay: TimePhase;
-  timeProgress: number; // 0.0 to 1.0 continuous normalized day cycle
+  timeProgress: number;
 
-  // Simulation Controls
   isPaused: boolean;
   simSpeed: SimulationSpeed;
   stepTrigger: number;
   isProcessing: boolean;
 
-  // Survivor Data
   vitals: Vitals;
   inventory: Record<string, number>;
   survivorPosition: [number, number, number];
   targetPosition: [number, number, number] | null;
+  survivorState: SurvivorAnimState;
 
-  // Environment & Feed
   nodes: IslandNode[];
   structures: WorldStructure[];
   latestThought: string;
   logs: string[];
 
-  // Actions
   setPaused: (paused: boolean) => void;
   togglePaused: () => void;
   setSimSpeed: (speed: SimulationSpeed) => void;
@@ -56,6 +53,7 @@ export interface GameState {
   setTimeProgress: (progress: number, phase: TimePhase) => void;
   setTargetPosition: (pos: [number, number, number] | null) => void;
   updateSurvivorPosition: (pos: [number, number, number]) => void;
+  setSurvivorState: (status: SurvivorAnimState) => void;
   applyActionOutcome: (
     thought: string,
     log: string,
@@ -66,24 +64,21 @@ export interface GameState {
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
-  // World Defaults
   day: 1,
   timeOfDay: 'Day',
   timeProgress: 0.25,
 
-  // Control Defaults
   isPaused: false,
   simSpeed: 1,
   stepTrigger: 0,
   isProcessing: false,
 
-  // Survivor Defaults
   vitals: { health: 100, hunger: 75, energy: 80 },
   inventory: { driftwood: 6, flint: 2, palm_frond: 5 },
   survivorPosition: [0, 0, 0],
   targetPosition: null,
+  survivorState: 'IDLE',
 
-  // Map & Logs Defaults
   nodes: [
     { id: 'tree_01', type: 'palm', position: [4, 0, -2] },
     { id: 'rock_01', type: 'limestone', position: [-3, 0, 3] },
@@ -93,23 +88,22 @@ export const useGameStore = create<GameState>((set, get) => ({
   latestThought: 'Surveying the shoreline for raw supplies.',
   logs: ['Spawned on the island.'],
 
-  // Control Setters
   setPaused: (isPaused) => set({ isPaused }),
   togglePaused: () => set((s) => ({ isPaused: !s.isPaused })),
   setSimSpeed: (simSpeed) => set({ simSpeed }),
   triggerStep: () => set((s) => ({ stepTrigger: s.stepTrigger + 1, isPaused: true })),
   setProcessing: (isProcessing) => set({ isProcessing }),
 
-  // Navigation & Time Setters
   setTargetPosition: (pos) => set({ targetPosition: pos }),
   updateSurvivorPosition: (pos) => set({ survivorPosition: pos }),
+  setSurvivorState: (survivorState) => set({ survivorState }),
+
   setTimeProgress: (progress, phase) =>
     set((state) => {
       const nextDay = progress < state.timeProgress ? state.day + 1 : state.day;
       return { timeProgress: progress, timeOfDay: phase, day: nextDay };
     }),
 
-  // State Mutation Resolvers
   applyActionOutcome: (thought, log, deltaVitals, inventoryUpdate) =>
     set((state) => ({
       latestThought: thought,

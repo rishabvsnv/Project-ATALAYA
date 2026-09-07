@@ -13,12 +13,10 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastStepTriggerRef = useRef(0);
 
-  // Subscribe to stepTrigger and isPaused reactively
   const stepTrigger = useGameStore((s) => s.stepTrigger);
   const isPaused = useGameStore((s) => s.isPaused);
   const simSpeed = useGameStore((s) => s.simSpeed);
 
-  // Core tick logic abstracted for reuse
   const runTick = async () => {
     const state = useGameStore.getState();
     if (state.isProcessing) return;
@@ -61,6 +59,17 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
       const action = data?.action;
 
       if (!action || !isRunningRef.current) return;
+
+      // Update procedural animation state based on LLM intent
+      if (action.action_type === 'REST') {
+        state.setSurvivorState('SLEEP');
+      } else if (['FORAGE', 'BUILD', 'CRAFT'].includes(action.action_type)) {
+        state.setSurvivorState('CHOP');
+      } else if (action.action_type === 'MOVE') {
+        state.setSurvivorState('WALK');
+      } else {
+        state.setSurvivorState('IDLE');
+      }
 
       if (action.action_type === 'CRAFT' || action.action_type === 'BUILD') {
         if (action.recipe) {
@@ -126,7 +135,6 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
     }
   };
 
-  // Continuous loop handler
   useEffect(() => {
     isRunningRef.current = true;
 
@@ -153,7 +161,6 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
     };
   }, [baseIntervalMs, isPaused, simSpeed]);
 
-  // Step trigger listener (single-step execution)
   useEffect(() => {
     if (stepTrigger > 0 && stepTrigger !== lastStepTriggerRef.current) {
       lastStepTriggerRef.current = stepTrigger;
@@ -161,7 +168,6 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
     }
   }, [stepTrigger]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       isRunningRef.current = false;
