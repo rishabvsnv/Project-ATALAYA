@@ -25,6 +25,19 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
 
     state.setProcessing(true);
 
+    // Add a weather shift counter ref:
+    const tickCountRef = useRef(0);
+
+    // Inside runTick() before sending fetch:
+    tickCountRef.current += 1;
+
+    // Periodically transition weather system
+    if (tickCountRef.current % 8 === 0) {
+      const weathers: Array<'Clear' | 'Rain' | 'Storm' | 'Fog'> = ['Clear', 'Clear', 'Rain', 'Storm', 'Fog'];
+      const nextWeather = weathers[Math.floor(Math.random() * weathers.length)];
+      state.setWeather(nextWeather);
+    }
+
     const payload = {
       day: state.day,
       time_of_day: state.timeOfDay,
@@ -45,6 +58,20 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
         )
       }))
     };
+
+    // Weather impact on vitals during action outcomes:
+    let weatherTempDelta = 0;
+    let weatherHydrationDelta = 0;
+
+    if (state.weather === 'Rain') {
+      weatherTempDelta = -1.2;
+      weatherHydrationDelta = +4; // Free ambient hydration from rainfall
+    } else if (state.weather === 'Storm') {
+      weatherTempDelta = -2.5;
+      weatherHydrationDelta = +6;
+    } else if (state.timeOfDay === 'Day' && state.weather === 'Clear') {
+      weatherTempDelta = +0.5; // Warming sun
+    }
 
     try {
       abortControllerRef.current?.abort();

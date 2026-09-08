@@ -5,6 +5,7 @@ import { useGameStore } from '@/lib/store';
 import { DayNightCycle } from './DayNightCycle';
 import { WorldStructures } from './WorldStructures';
 import { SurvivorMesh } from '@/components/SurvivorMesh';
+import { WeatherFX } from './WeatherFX';
 
 export function IslandScene() {
   const plates = useGameStore((s) => s.plates);
@@ -12,12 +13,13 @@ export function IslandScene() {
 
   return (
     <group position={[0, 0, 0]}>
-      {/* Dynamic Celestial Rig & Sky Dome */}
       <DayNightCycle cycleDurationSeconds={180} />
+
+      {/* Dynamic Weather Particle Rigs */}
+      <WeatherFX />
 
       {/* Dynamic Procedural Terrain Plates (Archipelago) */}
       {plates.map((plate) => (
-        // Plate sits at [x, 0, z] with the cylinder shifted down so its top is exactly at y = 0
         <group key={plate.id} position={[plate.position[0], 0, plate.position[2]]}>
           <mesh receiveShadow castShadow position={[0, -1.6, 0]}>
             <cylinderGeometry args={[plate.radius, plate.radius + 1.8, 3.2, 18]} />
@@ -26,7 +28,7 @@ export function IslandScene() {
         </group>
       ))}
 
-      {/* Expansive Procedural Ocean Disc (Sits slightly below the island surface) */}
+      {/* Expansive Procedural Ocean Disc */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.3, 0]} receiveShadow>
         <circleGeometry args={[75, 36]} />
         <meshLambertMaterial
@@ -37,7 +39,7 @@ export function IslandScene() {
         />
       </mesh>
 
-      {/* Dynamic Natural Resource Nodes (Elevated cleanly above the ground) */}
+      {/* Dynamic Natural Resource Nodes */}
       {nodes.map((node) => (
         <group key={node.id} position={[node.position[0], 0, node.position[2]]}>
           {node.type === 'palm' && (
@@ -70,10 +72,7 @@ export function IslandScene() {
         </group>
       ))}
 
-      {/* Dynamic Built Structures */}
       <WorldStructures />
-
-      {/* Articulated Procedural Survivor */}
       <SurvivorMesh />
     </group>
   );
