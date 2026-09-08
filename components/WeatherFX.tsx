@@ -111,7 +111,7 @@ export function WeatherFX() {
         />
       </points>
 
-      {/* Low-Poly Ground Fog Nodes */}
+      {/* Low-Poly Ground Fog Nodes - tuned down */}
       <points ref={fogRef} visible={hasFog}>
         <bufferGeometry>
           <bufferAttribute
@@ -120,10 +120,10 @@ export function WeatherFX() {
           />
         </bufferGeometry>
         <pointsMaterial
-          color="#cbd5e1"
-          size={1.6}
+          color="#e2e8f0"
+          size={0.35}           // Reduced from 1.6 to prevent big square tiles
           transparent
-          opacity={0.3}
+          opacity={0.15}        // Softer, subtle atmospheric mist
           depthWrite={false}
         />
       </points>
