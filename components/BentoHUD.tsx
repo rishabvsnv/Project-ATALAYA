@@ -21,6 +21,9 @@ import {
 import { useGameStore, SimulationSpeed } from '@/lib/store';
 import { Eye, Gift, Sprout, Navigation } from 'lucide-react';
 import { InterventionTool } from '@/lib/store';
+import { Volume2, VolumeX } from 'lucide-react';
+import { audioManager } from '@/lib/audioManager';
+import { useState } from 'react';
 
 export function BentoHUD() {
   const vitals = useGameStore((s) => s.vitals);
@@ -52,6 +55,15 @@ export function BentoHUD() {
     { id: 'DROP_SUPPLY', label: 'Airdrop Crate', icon: <Gift className="h-3.5 w-3.5" />, color: 'hover:text-amber-400' },
     { id: 'PLANT_NODE', label: 'Plant Node', icon: <Sprout className="h-3.5 w-3.5" />, color: 'hover:text-emerald-400' }
   ];
+  
+  const [isMuted, setIsMuted] = useState(true);
+
+  const toggleAudio = () => {
+    if (!audioManager) return;
+    audioManager.init();
+    const nextMuted = audioManager.toggleMute();
+    setIsMuted(nextMuted);
+  };
 
   return (
     <aside aria-label="HUD Overlay" className="pointer-events-none fixed inset-0 z-20 flex flex-col justify-between p-6 select-none">
@@ -179,6 +191,20 @@ export function BentoHUD() {
                 </button>
               ))}
             </div>
+
+            <div className="h-4 w-[1px] bg-white/15 mx-0.5" />
+
+            <button
+              onClick={toggleAudio}
+              className={`flex h-8 w-8 items-center justify-center rounded-full transition-all ${
+                isMuted 
+                  ? 'bg-white/5 text-neutral-400 hover:bg-white/10 hover:text-neutral-200' 
+                  : 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30'
+              }`}
+              title={isMuted ? 'Unmute Procedural Audio' : 'Mute Audio'}
+            >
+              {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+            </button>
             
             <div className="flex items-center gap-1 border-l border-white/15 pl-2 ml-1">
               {tools.map((t) => (

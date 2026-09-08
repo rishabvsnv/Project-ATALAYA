@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useGameStore } from '@/lib/store';
+import { audioManager } from '@/lib/audioManager';
 
 const NODE_HARVEST_TABLE: Record<string, { item: string; amount: number }> = {
   palm: { item: 'driftwood', amount: 2 },
@@ -33,6 +34,7 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
       const weathers: Array<'Clear' | 'Rain' | 'Storm' | 'Fog'> = ['Clear', 'Clear', 'Rain', 'Storm', 'Fog'];
       const nextWeather = weathers[Math.floor(Math.random() * weathers.length)];
       state.setWeather(nextWeather);
+      audioManager?.updateWeatherAudio(nextWeather);
     }
 
     const payload = {
@@ -103,6 +105,7 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
       if (action.action_type === 'EXPAND_TERRAIN') {
         const success = state.expandNewArea('adjacent');
         if (success) {
+          audioManager?.playTerraformSound();
           state.applyActionOutcome(
             action.thought_monologue,
             'Constructed a pontoon crossing and reclaimed a new islet!',
@@ -197,6 +200,7 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
           );
           return;
         }
+        audioManager?.playChopSound();
       }
 
       // Handle Locomotion
