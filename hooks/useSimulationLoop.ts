@@ -14,6 +14,7 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
   const timeoutIdRef = useRef<NodeJS.Timeout | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastStepTriggerRef = useRef(0);
+  const tickCountRef = useRef(0);
 
   const stepTrigger = useGameStore((s) => s.stepTrigger);
   const isPaused = useGameStore((s) => s.isPaused);
@@ -25,10 +26,6 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
 
     state.setProcessing(true);
 
-    // Add a weather shift counter ref:
-    const tickCountRef = useRef(0);
-
-    // Inside runTick() before sending fetch:
     tickCountRef.current += 1;
 
     // Periodically transition weather system
@@ -41,6 +38,7 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
     const payload = {
       day: state.day,
       time_of_day: state.timeOfDay,
+      weather: state.weather,
       survivor: {
         position: state.survivorPosition,
         vitals: state.vitals,
@@ -59,18 +57,18 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
       }))
     };
 
-    // Weather impact on vitals during action outcomes:
+    // Environmental impacts on vitals
     let weatherTempDelta = 0;
     let weatherHydrationDelta = 0;
 
     if (state.weather === 'Rain') {
       weatherTempDelta = -1.2;
-      weatherHydrationDelta = +4; // Free ambient hydration from rainfall
+      weatherHydrationDelta = 4;
     } else if (state.weather === 'Storm') {
       weatherTempDelta = -2.5;
-      weatherHydrationDelta = +6;
+      weatherHydrationDelta = 6;
     } else if (state.timeOfDay === 'Day' && state.weather === 'Clear') {
-      weatherTempDelta = +0.5; // Warming sun
+      weatherTempDelta = 0.5;
     }
 
     try {
@@ -108,13 +106,23 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
           state.applyActionOutcome(
             action.thought_monologue,
             'Constructed a pontoon crossing and reclaimed a new islet!',
-            { hunger: -6, energy: -15, hydration: -10 }
+            {
+              hunger: -6,
+              energy: -15,
+              hydration: -10 + weatherHydrationDelta,
+              temperatureC: weatherTempDelta
+            }
           );
         } else {
           state.applyActionOutcome(
             action.thought_monologue,
             'Attempted terraforming but lacked required timber and rock.',
-            { hunger: -1, energy: -2, hydration: -2 }
+            {
+              hunger: -1,
+              energy: -2,
+              hydration: -2 + weatherHydrationDelta,
+              temperatureC: weatherTempDelta
+            }
           );
         }
         return;
@@ -125,7 +133,12 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
         state.applyActionOutcome(
           action.thought_monologue,
           'Drank cool freshwater to replenish hydration.',
-          { hunger: -1, energy: +4, hydration: +45 }
+          {
+            hunger: -1,
+            energy: 4,
+            hydration: 45 + weatherHydrationDelta,
+            temperatureC: weatherTempDelta
+          }
         );
         return;
       }
@@ -138,7 +151,13 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
             state.applyActionOutcome(
               action.thought_monologue,
               action.log_message,
-              { hunger: -4, energy: -8, hydration: -6, health: 0 }
+              {
+                hunger: -4,
+                energy: -8,
+                hydration: -6 + weatherHydrationDelta,
+                temperatureC: weatherTempDelta,
+                health: 0
+              }
             );
             return;
           }
@@ -146,7 +165,13 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
         state.applyActionOutcome(
           action.thought_monologue,
           `Attempted to craft ${action.recipe ?? 'item'}, but lacked ingredients.`,
-          { hunger: -1, energy: -2, hydration: -2, health: 0 }
+          {
+            hunger: -1,
+            energy: -2,
+            hydration: -2 + weatherHydrationDelta,
+            temperatureC: weatherTempDelta,
+            health: 0
+          }
         );
         return;
       }
@@ -161,7 +186,13 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
           state.applyActionOutcome(
             action.thought_monologue,
             action.log_message,
-            { hunger: -3, energy: -5, hydration: -5, health: 0 },
+            {
+              hunger: -3,
+              energy: -5,
+              hydration: -5 + weatherHydrationDelta,
+              temperatureC: weatherTempDelta,
+              health: 0
+            },
             { [drop.item]: currentCount + drop.amount }
           );
           return;
@@ -177,7 +208,13 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
         state.applyActionOutcome(
           action.thought_monologue,
           action.log_message,
-          { hunger: -2, energy: -3, hydration: -4, health: 0 }
+          {
+            hunger: -2,
+            energy: -3,
+            hydration: -4 + weatherHydrationDelta,
+            temperatureC: weatherTempDelta,
+            health: 0
+          }
         );
         return;
       }
@@ -186,7 +223,13 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
       state.applyActionOutcome(
         action.thought_monologue,
         action.log_message,
-        { hunger: -1, energy: +16, hydration: -2, health: +2 }
+        {
+          hunger: -1,
+          energy: 16,
+          hydration: -2 + weatherHydrationDelta,
+          temperatureC: weatherTempDelta,
+          health: 2
+        }
       );
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') return;
