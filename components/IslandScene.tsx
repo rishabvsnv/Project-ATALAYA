@@ -1,82 +1,75 @@
 'use client';
 
-import React, { useMemo } from 'react';
-import * as THREE from 'three';
+import React from 'react';
 import { useGameStore } from '@/lib/store';
 import { DayNightCycle } from './DayNightCycle';
 import { WorldStructures } from './WorldStructures';
 import { SurvivorMesh } from '@/components/SurvivorMesh';
 
 export function IslandScene() {
+  const plates = useGameStore((s) => s.plates);
   const nodes = useGameStore((s) => s.nodes);
 
-  // Generate faceted low-poly terrain
-  const terrainGeometry = useMemo(() => {
-    const geo = new THREE.CylinderGeometry(14, 16, 3, 18, 4);
-    const pos = geo.attributes.position;
-    
-    // Perturb vertices slightly to remove synthetic uniformity
-    for (let i = 0; i < pos.count; i++) {
-      const x = pos.getX(i);
-      const y = pos.getY(i);
-      const z = pos.getZ(i);
-      
-      // Keep base flat, jitter upper surface
-      if (y > 0) {
-        const jitter = (Math.sin(x * 2) + Math.cos(z * 2)) * 0.25;
-        pos.setY(i, y + jitter);
-      }
-    }
-    geo.computeVertexNormals();
-    return geo;
-  }, []);
-
   return (
-    <group>
+    <group position={[0, 0, 0]}>
       {/* Dynamic Celestial Rig & Sky Dome */}
       <DayNightCycle cycleDurationSeconds={180} />
 
-      {/* Main Island Hex Cylinder */}
-      <mesh geometry={terrainGeometry} receiveShadow castShadow position={[0, -1.5, 0]}>
-        <meshStandardMaterial
-          color="#5B8C5A"
-          roughness={0.9}
-          metalness={0.1}
-          flatShading
-        />
-      </mesh>
+      {/* Dynamic Procedural Terrain Plates (Archipelago) */}
+      {plates.map((plate) => (
+        <group key={plate.id} position={plate.position}>
+          <mesh receiveShadow castShadow>
+            <cylinderGeometry args={[plate.radius, plate.radius + 1.8, 3.2, 18]} />
+            <meshLambertMaterial color={plate.color} flatShading />
+          </mesh>
+        </group>
+      ))}
 
-      {/* Procedural Water Ring */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.4, 0]}>
-        <circleGeometry args={[26, 32]} />
-        <meshStandardMaterial
-          color="#2A7B9B"
+      {/* Expansive Procedural Ocean Disc */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.85, 0]} receiveShadow>
+        <circleGeometry args={[75, 36]} />
+        <meshLambertMaterial
+          color="#0284c7"
           transparent
-          opacity={0.78}
-          roughness={0.2}
-          metalness={0.3}
+          opacity={0.8}
           flatShading
         />
       </mesh>
 
-      {/* Dynamic Resource Nodes */}
+      {/* Dynamic Natural Resource Nodes */}
       {nodes.map((node) => (
         <group key={node.id} position={node.position}>
-          {node.type === 'palm' ? (
-            <mesh castShadow position={[0, 1.2, 0]}>
-              <coneGeometry args={[0.9, 2.4, 5]} />
-              <meshStandardMaterial color="#2E6232" flatShading />
+          {node.type === 'palm' && (
+            <mesh castShadow position={[0, 1.4, 0]}>
+              <coneGeometry args={[1.0, 2.8, 5]} />
+              <meshLambertMaterial color="#166534" flatShading />
             </mesh>
-          ) : (
+          )}
+
+          {node.type === 'limestone' && (
             <mesh castShadow position={[0, 0.4, 0]}>
-              <dodecahedronGeometry args={[0.6, 0]} />
-              <meshStandardMaterial color="#6B7280" flatShading />
+              <dodecahedronGeometry args={[0.65, 0]} />
+              <meshLambertMaterial color="#64748b" flatShading />
+            </mesh>
+          )}
+
+          {node.type === 'obsidian' && (
+            <mesh castShadow position={[0, 0.6, 0]}>
+              <octahedronGeometry args={[0.8, 0]} />
+              <meshLambertMaterial color="#1e1b4b" flatShading />
+            </mesh>
+          )}
+
+          {node.type === 'water_spring' && (
+            <mesh position={[0, 0.05, 0]}>
+              <cylinderGeometry args={[1.2, 1.2, 0.1, 8]} />
+              <meshLambertMaterial color="#38bdf8" flatShading />
             </mesh>
           )}
         </group>
       ))}
 
-      {/* Dynamic Structures Built by Agent */}
+      {/* Dynamic Built Structures */}
       <WorldStructures />
 
       {/* Articulated Procedural Survivor */}

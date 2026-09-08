@@ -3,10 +3,10 @@ import { z } from 'zod';
 
 const ActionSchema = z.object({
   thought_monologue: z.string().default('Surveying surroundings to plan next action.'),
-  action_type: z.enum(['MOVE', 'FORAGE', 'CRAFT', 'BUILD', 'REST']).default('FORAGE'),
-  target_id: z.string().nullable().default('tree_01'),
+  action_type: z.enum(['MOVE', 'FORAGE', 'CRAFT', 'BUILD', 'REST', 'DRINK', 'EXPAND_TERRAIN']).default('FORAGE'),
+  target_id: z.string().nullable().default(null),
   recipe: z.string().nullable().default(null),
-  log_message: z.string().default('Survivor begins exploring the island.')
+  log_message: z.string().default('Survivor takes action.')
 });
 
 export async function POST(req: Request) {
@@ -15,40 +15,37 @@ export async function POST(req: Request) {
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
-      console.error('CRITICAL: GEMINI_API_KEY is not defined in process.env! Check your .env.local file.');
+      console.error('CRITICAL: GEMINI_API_KEY is not defined in process.env!');
       throw new Error('Missing GEMINI_API_KEY');
     }
 
-    const prompt = `You are the autonomous AI survival brain of a stranded survivor on a low-poly island.
+    const prompt = `You are the autonomous AI survival brain of a stranded survivor on a dynamic low-poly archipelago.
 Current World Context:
 ${JSON.stringify(worldContext, null, 2)}
 
-Available node IDs to target: "tree_01", "rock_01", "camp_site".
-Available crafting recipes: "campfire", "lean_to", "crafting_bench", "roasted_coconut".
+SURVIVAL STRATEGY:
+- If hydration < 35: Prioritize action_type "DRINK" (target_id can be null or a fresh_well).
+- If energy < 25: Prioritize action_type "REST".
+- If inventory has driftwood >= 6 and limestone >= 4: You can trigger "EXPAND_TERRAIN" to dredge and discover a new islet with new resources.
+- If ingredients are sufficient, craft structures ("campfire", "lean_to", "crafting_bench", "water_collector").
+- Otherwise: "FORAGE" accessible nodes or "MOVE" across plates.
 
-Choose the single best survival action right now.
 Respond ONLY with a valid JSON object matching this schema:
 {
   "thought_monologue": "first-person thought rationale",
-  "action_type": "MOVE" | "FORAGE" | "CRAFT" | "BUILD" | "REST",
-  "target_id": "tree_01" | "rock_01" | "camp_site" | null,
-  "recipe": "campfire" | "lean_to" | "crafting_bench" | "roasted_coconut" | null,
+  "action_type": "MOVE" | "FORAGE" | "CRAFT" | "BUILD" | "REST" | "DRINK" | "EXPAND_TERRAIN",
+  "target_id": "string matching an island_node id or null",
+  "recipe": "campfire" | "lean_to" | "crafting_bench" | "water_collector" | "roasted_coconut" | null,
   "log_message": "third-person action summary"
 }`;
 
-    // Target the latest production Flash endpoint
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [
-            {
-              role: 'user',
-              parts: [{ text: prompt }]
-            }
-          ],
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
           generationConfig: {
             responseMimeType: 'application/json',
             temperature: 0.3
@@ -66,18 +63,12 @@ Respond ONLY with a valid JSON object matching this schema:
     const data = await response.json();
     let rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
 
-    if (!rawText) {
-      console.error('Empty parts response from Gemini:', data);
-      throw new Error('No candidate content');
-    }
+    if (!rawText) throw new Error('No candidate content');
 
-    // Clean any accidental markdown wrap
     rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+    const action = ActionSchema.parse(JSON.parse(rawText));
 
-    const parsedJson = JSON.parse(rawText);
-    const action = ActionSchema.parse(parsedJson);
-
-    console.log('Gemini Live Decision:', action.action_type, '->', action.thought_monologue);
+    console.log('Gemini Intent:', action.action_type, '->', action.thought_monologue);
     return NextResponse.json({ success: true, action });
 
   } catch (error: any) {

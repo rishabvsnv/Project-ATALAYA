@@ -3,7 +3,9 @@ import { useGameStore } from '@/lib/store';
 
 const NODE_HARVEST_TABLE: Record<string, { item: string; amount: number }> = {
   palm: { item: 'driftwood', amount: 2 },
-  limestone: { item: 'flint', amount: 1 },
+  limestone: { item: 'limestone', amount: 2 },
+  obsidian: { item: 'flint', amount: 2 },
+  water_spring: { item: 'palm_frond', amount: 1 },
   clearing: { item: 'palm_frond', amount: 2 }
 };
 
@@ -31,6 +33,7 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
         vitals: state.vitals,
         inventory: state.inventory
       },
+      plates_discovered: state.plates.map((p) => ({ id: p.id, name: p.name, type: p.type })),
       island_nodes: state.nodes.map((n) => ({
         id: n.id,
         type: n.type,
@@ -60,10 +63,10 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
 
       if (!action || !isRunningRef.current) return;
 
-      // Update procedural animation state based on LLM intent
+      // Map action intent to procedural kinesthetic poses
       if (action.action_type === 'REST') {
         state.setSurvivorState('SLEEP');
-      } else if (['FORAGE', 'BUILD', 'CRAFT'].includes(action.action_type)) {
+      } else if (['FORAGE', 'BUILD', 'CRAFT', 'EXPAND_TERRAIN'].includes(action.action_type)) {
         state.setSurvivorState('CHOP');
       } else if (action.action_type === 'MOVE') {
         state.setSurvivorState('WALK');
@@ -71,6 +74,36 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
         state.setSurvivorState('IDLE');
       }
 
+      // Handle Terraforming
+      if (action.action_type === 'EXPAND_TERRAIN') {
+        const success = state.expandNewArea('adjacent');
+        if (success) {
+          state.applyActionOutcome(
+            action.thought_monologue,
+            'Constructed a pontoon crossing and reclaimed a new islet!',
+            { hunger: -6, energy: -15, hydration: -10 }
+          );
+        } else {
+          state.applyActionOutcome(
+            action.thought_monologue,
+            'Attempted terraforming but lacked required timber and rock.',
+            { hunger: -1, energy: -2, hydration: -2 }
+          );
+        }
+        return;
+      }
+
+      // Handle Drinking
+      if (action.action_type === 'DRINK') {
+        state.applyActionOutcome(
+          action.thought_monologue,
+          'Drank cool freshwater to replenish hydration.',
+          { hunger: -1, energy: +4, hydration: +45 }
+        );
+        return;
+      }
+
+      // Handle Crafting / Building
       if (action.action_type === 'CRAFT' || action.action_type === 'BUILD') {
         if (action.recipe) {
           const success = state.executeCraftOrBuild(action.recipe);
@@ -78,7 +111,7 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
             state.applyActionOutcome(
               action.thought_monologue,
               action.log_message,
-              { hunger: -4, energy: -8, health: 0 }
+              { hunger: -4, energy: -8, hydration: -6, health: 0 }
             );
             return;
           }
@@ -86,11 +119,12 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
         state.applyActionOutcome(
           action.thought_monologue,
           `Attempted to craft ${action.recipe ?? 'item'}, but lacked ingredients.`,
-          { hunger: -1, energy: -2, health: 0 }
+          { hunger: -1, energy: -2, hydration: -2, health: 0 }
         );
         return;
       }
 
+      // Handle Harvesting
       if (action.action_type === 'FORAGE') {
         const targetNode = state.nodes.find((n) => n.id === action.target_id);
         if (targetNode) {
@@ -100,13 +134,14 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
           state.applyActionOutcome(
             action.thought_monologue,
             action.log_message,
-            { hunger: -3, energy: -5, health: 0 },
+            { hunger: -3, energy: -5, hydration: -5, health: 0 },
             { [drop.item]: currentCount + drop.amount }
           );
           return;
         }
       }
 
+      // Handle Locomotion
       if (action.action_type === 'MOVE') {
         const targetNode = state.nodes.find((n) => n.id === action.target_id);
         if (targetNode) {
@@ -115,15 +150,16 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
         state.applyActionOutcome(
           action.thought_monologue,
           action.log_message,
-          { hunger: -2, energy: -3, health: 0 }
+          { hunger: -2, energy: -3, hydration: -4, health: 0 }
         );
         return;
       }
 
+      // Fallback Rest
       state.applyActionOutcome(
         action.thought_monologue,
         action.log_message,
-        { hunger: -1, energy: +16, health: +2 }
+        { hunger: -1, energy: +16, hydration: -2, health: +2 }
       );
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') return;

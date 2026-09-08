@@ -5,6 +5,7 @@ import {
   Heart, 
   Utensils, 
   Zap, 
+  Droplets,
   Sun, 
   CloudSun, 
   Terminal, 
@@ -14,7 +15,8 @@ import {
   Play,
   Pause,
   StepForward,
-  Gauge
+  Gauge,
+  MapPin
 } from 'lucide-react';
 import { useGameStore, SimulationSpeed } from '@/lib/store';
 
@@ -23,6 +25,7 @@ export function BentoHUD() {
   const day = useGameStore((s) => s.day);
   const timeOfDay = useGameStore((s) => s.timeOfDay);
   const inventory = useGameStore((s) => s.inventory);
+  const plates = useGameStore((s) => s.plates);
   const latestThought = useGameStore((s) => s.latestThought);
   const logs = useGameStore((s) => s.logs);
   const isProcessing = useGameStore((s) => s.isProcessing);
@@ -43,9 +46,14 @@ export function BentoHUD() {
       {/* Top Row: Vitals & Celestial Clock */}
       <div className="flex items-start justify-between">
         {/* Top-Left: Survivor Vitals */}
-        <section aria-label="Survivor Vitals" className="pointer-events-auto w-80 rounded-2xl border border-white/10 bg-black/40 p-4 shadow-2xl backdrop-blur-md transition-all">
+        <section aria-label="Survivor Vitals" className="pointer-events-auto w-84 rounded-2xl border border-white/10 bg-black/50 p-4 shadow-2xl backdrop-blur-md transition-all">
           <div className="mb-3 flex items-center justify-between border-b border-white/10 pb-2">
-            <span className="text-xs font-semibold tracking-wider text-neutral-400 uppercase">Survivor Status</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold tracking-wider text-neutral-300 uppercase">Survivor Status</span>
+              <span className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[10px] text-emerald-400">
+                {plates.length} Islet{plates.length > 1 ? 's' : ''}
+              </span>
+            </div>
             <div className="flex items-center gap-1.5">
               <span className={`h-2 w-2 rounded-full ${isProcessing ? 'animate-pulse bg-amber-400' : isPaused ? 'bg-neutral-500' : 'bg-emerald-400'}`} />
               <span className="text-[10px] tracking-wide text-neutral-400 uppercase">
@@ -54,7 +62,7 @@ export function BentoHUD() {
             </div>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             <VitalBar
               label="Health"
               val={vitals.health}
@@ -73,11 +81,17 @@ export function BentoHUD() {
               icon={<Zap className="h-3.5 w-3.5 text-cyan-400" />}
               barColor="bg-cyan-500"
             />
+            <VitalBar
+              label="Hydration"
+              val={vitals.hydration}
+              icon={<Droplets className="h-3.5 w-3.5 text-blue-400" />}
+              barColor="bg-blue-500"
+            />
           </div>
         </section>
 
         {/* Top-Right: Rotating Celestial Epoch & Weather */}
-        <section aria-label="Environment and Time" className="pointer-events-auto flex items-center gap-4 rounded-2xl border border-white/10 bg-black/40 px-5 py-3.5 shadow-2xl backdrop-blur-md">
+        <section aria-label="Environment and Time" className="pointer-events-auto flex items-center gap-4 rounded-2xl border border-white/10 bg-black/50 px-5 py-3.5 shadow-2xl backdrop-blur-md">
           <div className="flex items-center gap-3">
             <div className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 overflow-hidden">
               <div 
@@ -103,7 +117,7 @@ export function BentoHUD() {
               <CloudSun className="h-4 w-4 text-sky-400" />
             )}
             <span className="text-xs font-mono font-medium">
-              {isNight ? '14°C' : '22°C'}
+              {isNight ? '14°C' : '23°C'}
             </span>
           </div>
         </section>
@@ -113,8 +127,7 @@ export function BentoHUD() {
       <div className="relative flex flex-col gap-4">
         {/* Bottom-Center: Floating Simulation Control Bar */}
         <div className="flex justify-center">
-          <nav aria-label="Simulation Controls" className="pointer-events-auto flex items-center gap-3 rounded-full border border-white/15 bg-black/60 px-4 py-2 shadow-2xl backdrop-blur-xl transition-all">
-            {/* Play/Pause Button */}
+          <nav aria-label="Simulation Controls" className="pointer-events-auto flex items-center gap-3 rounded-full border border-white/15 bg-black/70 px-4 py-2 shadow-2xl backdrop-blur-xl transition-all">
             <button
               onClick={togglePaused}
               className={`flex h-8 w-8 items-center justify-center rounded-full transition-all ${
@@ -127,7 +140,6 @@ export function BentoHUD() {
               {isPaused ? <Play className="h-4 w-4 fill-current ml-0.5" /> : <Pause className="h-4 w-4 fill-current" />}
             </button>
 
-            {/* Single-Step Button */}
             <button
               onClick={triggerStep}
               disabled={isProcessing}
@@ -139,7 +151,6 @@ export function BentoHUD() {
 
             <div className="h-4 w-[1px] bg-white/15 mx-0.5" />
 
-            {/* Speed Multiplier Pills */}
             <div className="flex items-center gap-1">
               <Gauge className="h-3.5 w-3.5 text-neutral-500 mr-1" />
               {speedOptions.map((speed) => (
@@ -162,12 +173,18 @@ export function BentoHUD() {
         {/* Bottom Grid: Monologue & Supplies */}
         <div className="grid grid-cols-12 gap-6">
           {/* Bottom-Left: LLM Cognitive Monologue */}
-          <section aria-label="Cognitive Loop Stream" className="pointer-events-auto col-span-7 flex flex-col justify-between rounded-2xl border border-white/10 bg-black/40 p-5 shadow-2xl backdrop-blur-md">
-            <div className="mb-2 flex items-center gap-2 border-b border-white/10 pb-2">
-              <Terminal className="h-4 w-4 text-emerald-400" />
-              <span className="text-xs font-semibold tracking-wider text-neutral-300 uppercase">
-                Cognitive Stream (Qwen 2.5 3B)
-              </span>
+          <section aria-label="Cognitive Loop Stream" className="pointer-events-auto col-span-7 flex flex-col justify-between rounded-2xl border border-white/10 bg-black/50 p-5 shadow-2xl backdrop-blur-md">
+            <div className="mb-2 flex items-center justify-between border-b border-white/10 pb-2">
+              <div className="flex items-center gap-2">
+                <Terminal className="h-4 w-4 text-emerald-400" />
+                <span className="text-xs font-semibold tracking-wider text-neutral-300 uppercase">
+                  Cognitive Stream (Gemini 2.5 Flash)
+                </span>
+              </div>
+              <div className="flex items-center gap-1 text-[11px] font-mono text-neutral-400">
+                <MapPin className="h-3 w-3 text-rose-400" />
+                <span>{plates[plates.length - 1]?.name}</span>
+              </div>
             </div>
 
             <p className="min-h-[48px] text-sm leading-relaxed text-neutral-200 italic">
@@ -181,34 +198,32 @@ export function BentoHUD() {
           </section>
 
           {/* Bottom-Right: Inventory & World Log */}
-          <section aria-label="Supplies and Ledger" className="pointer-events-auto col-span-5 flex flex-col rounded-2xl border border-white/10 bg-black/40 p-5 shadow-2xl backdrop-blur-md">
+          <section aria-label="Supplies and Ledger" className="pointer-events-auto col-span-5 flex flex-col rounded-2xl border border-white/10 bg-black/50 p-5 shadow-2xl backdrop-blur-md">
             <div className="mb-3 flex items-center justify-between border-b border-white/10 pb-2">
               <div className="flex items-center gap-2">
                 <Package className="h-4 w-4 text-sky-400" />
                 <span className="text-xs font-semibold tracking-wider text-neutral-300 uppercase">Supplies</span>
               </div>
-              <span className="text-[10px] text-neutral-400">
+              <span className="text-[10px] text-neutral-400 font-mono">
                 {Object.keys(inventory).length} Slots
               </span>
             </div>
 
-            {/* Inventory Grid */}
             <div className="grid grid-cols-3 gap-2">
               {Object.entries(inventory).map(([item, qty]) => (
                 <div 
                   key={item}
                   className="flex items-center justify-between rounded-lg border border-white/5 bg-white/5 px-2.5 py-1.5"
                 >
-                  <span className="text-xs capitalize text-neutral-300">{item.replace('_', ' ')}</span>
+                  <span className="text-xs capitalize text-neutral-300 truncate mr-1">{item.replace('_', ' ')}</span>
                   <span className="font-mono text-xs font-semibold text-sky-400">×{qty}</span>
                 </div>
               ))}
             </div>
 
-            {/* Mini Event Log */}
             <div className="mt-3 flex flex-col gap-1 border-t border-white/5 pt-2">
-              <span className="text-[10px] tracking-wider text-neutral-300 uppercase">Event Ledger</span>
-              <div className="max-h-14 overflow-hidden text-[11px] text-neutral-400 font-mono">
+              <span className="text-[10px] tracking-wider text-neutral-400 uppercase">Event Ledger</span>
+              <div className="max-h-14 overflow-hidden text-[11px] text-neutral-300 font-mono">
                 {logs.slice(1, 4).map((log, index) => (
                   <div key={index} className="truncate">› {log}</div>
                 ))}
