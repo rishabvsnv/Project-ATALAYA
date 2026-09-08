@@ -6,6 +6,7 @@ import { DayNightCycle } from './DayNightCycle';
 import { WorldStructures } from './WorldStructures';
 import { SurvivorMesh } from '@/components/SurvivorMesh';
 import { WeatherFX } from './WeatherFX';
+import { InteractiveTerrain } from './InteractiveTerrain';
 
 export function IslandScene() {
   const plates = useGameStore((s) => s.plates);
@@ -17,6 +18,9 @@ export function IslandScene() {
 
       {/* Dynamic Weather Particle Rigs */}
       <WeatherFX />
+
+      {/* Interactive Clickable Plates with God-Mode Raycasting */}
+      <InteractiveTerrain />
 
       {/* Dynamic Procedural Terrain Plates (Archipelago) */}
       {plates.map((plate) => (

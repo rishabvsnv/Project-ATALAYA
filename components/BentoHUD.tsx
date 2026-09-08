@@ -19,6 +19,8 @@ import {
   MapPin
 } from 'lucide-react';
 import { useGameStore, SimulationSpeed } from '@/lib/store';
+import { Eye, Gift, Sprout, Navigation } from 'lucide-react';
+import { InterventionTool } from '@/lib/store';
 
 export function BentoHUD() {
   const vitals = useGameStore((s) => s.vitals);
@@ -40,6 +42,16 @@ export function BentoHUD() {
 
   const isNight = timeOfDay === 'Night';
   const speedOptions: SimulationSpeed[] = [1, 2, 5];
+
+  const activeTool = useGameStore((s) => s.activeTool);
+  const setActiveTool = useGameStore((s) => s.setActiveTool);
+
+  const tools: { id: InterventionTool; label: string; icon: React.ReactNode; color: string }[] = [
+    { id: 'INSPECT', label: 'Inspect', icon: <Eye className="h-3.5 w-3.5" />, color: 'hover:text-sky-400' },
+    { id: 'ORDER_MOVE', label: 'Move Waypoint', icon: <Navigation className="h-3.5 w-3.5" />, color: 'hover:text-rose-400' },
+    { id: 'DROP_SUPPLY', label: 'Airdrop Crate', icon: <Gift className="h-3.5 w-3.5" />, color: 'hover:text-amber-400' },
+    { id: 'PLANT_NODE', label: 'Plant Node', icon: <Sprout className="h-3.5 w-3.5" />, color: 'hover:text-emerald-400' }
+  ];
 
   return (
     <aside aria-label="HUD Overlay" className="pointer-events-none fixed inset-0 z-20 flex flex-col justify-between p-6 select-none">
@@ -164,6 +176,24 @@ export function BentoHUD() {
                   }`}
                 >
                   {speed}×
+                </button>
+              ))}
+            </div>
+            
+            <div className="flex items-center gap-1 border-l border-white/15 pl-2 ml-1">
+              {tools.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setActiveTool(t.id)}
+                  className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-all ${
+                    activeTool === t.id
+                      ? 'bg-white/20 text-white shadow-inner'
+                      : `bg-white/5 text-neutral-400 ${t.color}`
+                  }`}
+                  title={t.label}
+                >
+                  {t.icon}
+                  <span className="hidden sm:inline text-[11px]">{t.label}</span>
                 </button>
               ))}
             </div>

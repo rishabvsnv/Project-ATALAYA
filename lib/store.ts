@@ -5,6 +5,7 @@ export type SimulationSpeed = 1 | 2 | 5;
 export type TimePhase = 'Dawn' | 'Day' | 'Dusk' | 'Night';
 export type WeatherType = 'Clear' | 'Rain' | 'Storm' | 'Fog';
 export type SurvivorAnimState = 'IDLE' | 'WALK' | 'CHOP' | 'SLEEP' | 'BUILD_LAND';
+export type InterventionTool = 'INSPECT' | 'DROP_SUPPLY' | 'PLANT_NODE' | 'ORDER_MOVE';
 
 export interface WorldStructure {
   id: string;
@@ -60,6 +61,11 @@ export interface GameState {
   structures: WorldStructure[];
   latestThought: string;
   logs: string[];
+
+  activeTool: InterventionTool;
+  setActiveTool: (tool: InterventionTool) => void;
+  spawnSupplyCrate: (pos: [number, number, number]) => void;
+  plantCustomNode: (pos: [number, number, number], type: 'palm' | 'limestone') => void;
 
   setPaused: (paused: boolean) => void;
   togglePaused: () => void;
@@ -119,6 +125,43 @@ export const useGameStore = create<GameState>((set, get) => ({
   structures: [],
   latestThought: 'The island is fertile, but resources are finite. I should survey expansion points.',
   logs: ['Spawned on Origin Atoll.'],
+
+  activeTool: 'INSPECT',
+  setActiveTool: (activeTool) => set({ activeTool }),
+
+  spawnSupplyCrate: (pos) => {
+    const drops = ['driftwood', 'flint', 'palm_frond', 'limestone'];
+    const pickedItem = drops[Math.floor(Math.random() * drops.length)];
+    const count = Math.floor(Math.random() * 3) + 2;
+
+    set((s) => ({
+      inventory: {
+        ...s.inventory,
+        [pickedItem]: (s.inventory[pickedItem] ?? 0) + count
+      },
+      logs: [
+        `[God-Mode] Dropped supply crate (+${count} ${pickedItem}) near [${pos[0].toFixed(1)}, ${pos[2].toFixed(1)}]`,
+        ...s.logs.slice(0, 18)
+      ]
+    }));
+  },
+
+  plantCustomNode: (pos, type) => {
+    const newNode: IslandNode = {
+      id: `node_user_${Date.now()}`,
+      type,
+      position: [pos[0], 0, pos[2]],
+      health: 100
+    };
+
+    set((s) => ({
+      nodes: [...s.nodes, newNode],
+      logs: [
+        `[God-Mode] Seeded new ${type} resource node at [${pos[0].toFixed(1)}, ${pos[2].toFixed(1)}]`,
+        ...s.logs.slice(0, 18)
+      ]
+    }));
+  },
 
   setPaused: (isPaused) => set({ isPaused }),
   togglePaused: () => set((s) => ({ isPaused: !s.isPaused })),
