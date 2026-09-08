@@ -17,16 +17,17 @@ export function IslandScene() {
 
       {/* Dynamic Procedural Terrain Plates (Archipelago) */}
       {plates.map((plate) => (
-        <group key={plate.id} position={plate.position}>
-          <mesh receiveShadow castShadow>
+        // Plate sits at [x, 0, z] with the cylinder shifted down so its top is exactly at y = 0
+        <group key={plate.id} position={[plate.position[0], 0, plate.position[2]]}>
+          <mesh receiveShadow castShadow position={[0, -1.6, 0]}>
             <cylinderGeometry args={[plate.radius, plate.radius + 1.8, 3.2, 18]} />
             <meshLambertMaterial color={plate.color} flatShading />
           </mesh>
         </group>
       ))}
 
-      {/* Expansive Procedural Ocean Disc */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.85, 0]} receiveShadow>
+      {/* Expansive Procedural Ocean Disc (Sits slightly below the island surface) */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.3, 0]} receiveShadow>
         <circleGeometry args={[75, 36]} />
         <meshLambertMaterial
           color="#0284c7"
@@ -36,9 +37,9 @@ export function IslandScene() {
         />
       </mesh>
 
-      {/* Dynamic Natural Resource Nodes */}
+      {/* Dynamic Natural Resource Nodes (Elevated cleanly above the ground) */}
       {nodes.map((node) => (
-        <group key={node.id} position={node.position}>
+        <group key={node.id} position={[node.position[0], 0, node.position[2]]}>
           {node.type === 'palm' && (
             <mesh castShadow position={[0, 1.4, 0]}>
               <coneGeometry args={[1.0, 2.8, 5]} />
@@ -47,14 +48,14 @@ export function IslandScene() {
           )}
 
           {node.type === 'limestone' && (
-            <mesh castShadow position={[0, 0.4, 0]}>
+            <mesh castShadow position={[0, 0.45, 0]}>
               <dodecahedronGeometry args={[0.65, 0]} />
               <meshLambertMaterial color="#64748b" flatShading />
             </mesh>
           )}
 
           {node.type === 'obsidian' && (
-            <mesh castShadow position={[0, 0.6, 0]}>
+            <mesh castShadow position={[0, 0.65, 0]}>
               <octahedronGeometry args={[0.8, 0]} />
               <meshLambertMaterial color="#1e1b4b" flatShading />
             </mesh>
