@@ -33,7 +33,7 @@ export function InteractiveTerrain() {
     switch (activeTool) {
       case 'ORDER_MOVE':
         setTargetPosition(pt);
-        setSurvivorState('WALK');
+        // Will automatically transition to WALK or SWIM based on destination coordinates
         break;
       case 'DROP_SUPPLY':
         spawnSupplyCrate(pt);
@@ -43,7 +43,6 @@ export function InteractiveTerrain() {
         break;
       case 'INSPECT':
       default:
-        // Set inspection target
         setTargetPosition(pt);
         break;
     }
@@ -74,6 +73,24 @@ export function InteractiveTerrain() {
           </mesh>
         </group>
       ))}
+
+      {/* Clickable Ocean Disc (Allows clicking into the sea to trigger SWIM) */}
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, -0.3, 0]}
+        receiveShadow
+        onPointerMove={handlePointerMove}
+        onPointerOut={handlePointerOut}
+        onClick={handleClick}
+      >
+        <circleGeometry args={[75, 36]} />
+        <meshLambertMaterial
+          color="#0284c7"
+          transparent
+          opacity={0.8}
+          flatShading
+        />
+      </mesh>
 
       {/* Dynamic Cursor Projection Indicator */}
       {cursorPos && (

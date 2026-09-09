@@ -27,7 +27,8 @@ import {
   Volume2,
   VolumeX,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  RotateCcw
 } from 'lucide-react';
 import { useGameStore, SimulationSpeed, InterventionTool } from '@/lib/store';
 import { audioManager } from '@/lib/audioManager';
@@ -77,6 +78,9 @@ export function BentoHUD() {
   const isJournalOpen = useGameStore((s) => s.isJournalOpen);
   const setJournalOpen = useGameStore((s) => s.setJournalOpen);
 
+  const resetWorld = useGameStore((s) => s.resetWorld);
+  const survivorState = useGameStore((s) => s.survivorState);
+
   return (
     <aside aria-label="HUD Overlay" className="pointer-events-none fixed inset-0 z-20 flex flex-col justify-between p-4 sm:p-5 select-none font-sans">
       {/* Top Row: Vitals & Celestial Clock */}
@@ -91,9 +95,17 @@ export function BentoHUD() {
               </span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className={`h-1.5 w-1.5 rounded-full ${isProcessing ? 'animate-pulse bg-amber-400' : isPaused ? 'bg-neutral-500' : 'bg-emerald-400'}`} />
-              <span className="text-[10px] tracking-wide text-neutral-400 uppercase">
-                {isProcessing ? 'Thinking...' : isPaused ? 'Paused' : 'Active'}
+              <span className={`h-1.5 w-1.5 rounded-full ${
+                survivorState === 'SWIM'
+                  ? 'animate-ping bg-sky-400'
+                  : isProcessing
+                  ? 'animate-pulse bg-amber-400'
+                  : isPaused
+                  ? 'bg-neutral-500'
+                  : 'bg-emerald-400'
+              }`} />
+              <span className="text-[10px] uppercase text-neutral-400">
+                {survivorState === 'SWIM' ? 'Swimming' : isProcessing ? 'Thinking' : isPaused ? 'Paused' : 'Active'}
               </span>
             </div>
           </div>
@@ -205,6 +217,18 @@ export function BentoHUD() {
               title="Open Chronicles"
             >
               <BookOpen className="h-3.5 w-3.5" />
+            </button>
+
+            <button
+              onClick={() => {
+                if (confirm("Reset island simulation back to Day 1?")) {
+                  resetWorld();
+                }
+              }}
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-white/5 text-neutral-400 hover:bg-rose-500/20 hover:text-rose-300 transition-all"
+              title="Reset Simulation Save"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
             </button>
 
             {/* God-Mode Tools */}

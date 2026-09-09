@@ -29,7 +29,12 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
 
     tickCountRef.current += 1;
 
-    // Periodically transition weather system
+    // Swimming metrics & penalties
+    const isSwimming = state.survivorState === 'SWIM';
+    const swimTempDelta = isSwimming ? -2.2 : 0;
+    const swimEnergyDelta = isSwimming ? -14 : 0;
+
+    // Transition weather periodically
     if (tickCountRef.current % 8 === 0) {
       const weathers: Array<'Clear' | 'Rain' | 'Storm' | 'Fog'> = ['Clear', 'Clear', 'Rain', 'Storm', 'Fog'];
       const nextWeather = weathers[Math.floor(Math.random() * weathers.length)];
@@ -44,7 +49,8 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
       survivor: {
         position: state.survivorPosition,
         vitals: state.vitals,
-        inventory: state.inventory
+        inventory: state.inventory,
+        is_swimming: isSwimming
       },
       plates_discovered: state.plates.map((p) => ({ id: p.id, name: p.name, type: p.type })),
       island_nodes: state.nodes.map((n) => ({
@@ -59,7 +65,7 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
       }))
     };
 
-    // Environmental impacts on vitals
+    // Environmental impacts
     let weatherTempDelta = 0;
     let weatherHydrationDelta = 0;
 
@@ -72,6 +78,8 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
     } else if (state.timeOfDay === 'Day' && state.weather === 'Clear') {
       weatherTempDelta = 0.5;
     }
+
+    const netTempDelta = weatherTempDelta + swimTempDelta;
 
     try {
       abortControllerRef.current?.abort();
@@ -90,7 +98,7 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
 
       if (!action || !isRunningRef.current) return;
 
-      // 1. CAPTURE JOURNAL ENTRY FIRST (so it never gets skipped by early returns)
+      // 1. Capture journal log
       if (action.journal_log) {
         state.addJournalEntry({
           day: state.day,
@@ -102,15 +110,17 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
         });
       }
 
-      // 2. Map kinesthetic poses
-      if (action.action_type === 'REST') {
-        state.setSurvivorState('SLEEP');
-      } else if (['FORAGE', 'BUILD', 'CRAFT', 'EXPAND_TERRAIN'].includes(action.action_type)) {
-        state.setSurvivorState('CHOP');
-      } else if (action.action_type === 'MOVE') {
-        state.setSurvivorState('WALK');
-      } else {
-        state.setSurvivorState('IDLE');
+      // 2. Kinesthetic posture (preserve SWIM if in water)
+      if (!isSwimming) {
+        if (action.action_type === 'REST') {
+          state.setSurvivorState('SLEEP');
+        } else if (['FORAGE', 'BUILD', 'CRAFT', 'EXPAND_TERRAIN'].includes(action.action_type)) {
+          state.setSurvivorState('CHOP');
+        } else if (action.action_type === 'MOVE') {
+          state.setSurvivorState('WALK');
+        } else {
+          state.setSurvivorState('IDLE');
+        }
       }
 
       // 3. Terraforming
@@ -123,9 +133,9 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
             'Constructed a pontoon crossing and reclaimed a new islet!',
             {
               hunger: -6,
-              energy: -15,
+              energy: -15 + swimEnergyDelta,
               hydration: -10 + weatherHydrationDelta,
-              temperatureC: weatherTempDelta
+              temperatureC: netTempDelta
             }
           );
         } else {
@@ -134,9 +144,9 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
             'Attempted terraforming but lacked required timber and rock.',
             {
               hunger: -1,
-              energy: -2,
+              energy: -2 + swimEnergyDelta,
               hydration: -2 + weatherHydrationDelta,
-              temperatureC: weatherTempDelta
+              temperatureC: netTempDelta
             }
           );
         }
@@ -150,9 +160,9 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
           'Drank cool freshwater to replenish hydration.',
           {
             hunger: -1,
-            energy: 4,
+            energy: 4 + swimEnergyDelta,
             hydration: 45 + weatherHydrationDelta,
-            temperatureC: weatherTempDelta
+            temperatureC: netTempDelta
           }
         );
         return;
@@ -168,9 +178,9 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
               action.log_message,
               {
                 hunger: -4,
-                energy: -8,
+                energy: -8 + swimEnergyDelta,
                 hydration: -6 + weatherHydrationDelta,
-                temperatureC: weatherTempDelta,
+                temperatureC: netTempDelta,
                 health: 0
               }
             );
@@ -182,9 +192,9 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
           `Attempted to craft ${action.recipe ?? 'item'}, but lacked ingredients.`,
           {
             hunger: -1,
-            energy: -2,
+            energy: -2 + swimEnergyDelta,
             hydration: -2 + weatherHydrationDelta,
-            temperatureC: weatherTempDelta,
+            temperatureC: netTempDelta,
             health: 0
           }
         );
@@ -204,9 +214,9 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
             action.log_message,
             {
               hunger: -3,
-              energy: -5,
+              energy: -5 + swimEnergyDelta,
               hydration: -5 + weatherHydrationDelta,
-              temperatureC: weatherTempDelta,
+              temperatureC: netTempDelta,
               health: 0
             },
             { [drop.item]: currentCount + drop.amount }
@@ -223,13 +233,13 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
         }
         state.applyActionOutcome(
           action.thought_monologue,
-          action.log_message,
+          isSwimming ? 'Swimming through open water currents.' : action.log_message,
           {
             hunger: -2,
-            energy: -3,
+            energy: -3 + swimEnergyDelta,
             hydration: -4 + weatherHydrationDelta,
-            temperatureC: weatherTempDelta,
-            health: 0
+            temperatureC: netTempDelta,
+            health: state.vitals.temperatureC < 33 ? -4 : 0
           }
         );
         return;
@@ -238,13 +248,13 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
       // 8. Resting Fallback
       state.applyActionOutcome(
         action.thought_monologue,
-        action.log_message,
+        isSwimming ? 'Treading cold water trying to keep afloat.' : action.log_message,
         {
           hunger: -1,
-          energy: 16,
+          energy: isSwimming ? -8 : 16,
           hydration: -2 + weatherHydrationDelta,
-          temperatureC: weatherTempDelta,
-          health: 2
+          temperatureC: netTempDelta,
+          health: isSwimming && state.vitals.temperatureC < 33 ? -6 : 2
         }
       );
     } catch (err: unknown) {
