@@ -26,7 +26,8 @@ const ActionSchema = z.object({
     'fishing_spear',
     'water_collector',
     'watchtower',
-    'smelting_kiln'
+    'smelting_kiln',
+    'raft'
   ]).nullable().default(null),
   log_message: z.string().default('Survivor takes action.'),
   journal_log: z.object({
@@ -70,33 +71,26 @@ SURVIVAL STRATEGY & EVOLUTION:
    - If night/dusk falls and cold threatens, BUILD "campfire" (needs driftwood >= 3, flint >= 1).
    - If inventory has driftwood >= 6 and limestone >= 4 and basic survival needs are met: Trigger "EXPAND_TERRAIN" to uncover a new islet.
 
-5. RESOURCE GATHERING:
-   - Otherwise, choose "FORAGE" on an accessible resource node (set "target_id" to matching node id) or "MOVE" to an unharvested zone.
+5. OCEAN EXPLORATION & RAFTING:
+   - If inventory has driftwood >= 6 and palm_frond >= 4, and no "raft" structure exists:
+     - Choose action_type "BUILD" with recipe "raft". A raft allows you to cross deep waters without hypothermia or drowning exhaustion.
 
-6. CHRONICLING:
-   - Provide a poetic first-person past-tense "journal_log" when achieving milestones (forging a new tool, planting crops, harvesting food, building a shelter, terraforming). Otherwise keep null.
+6. HUNTING & FISHING:
+   - If hunger < 50 and wildlife_nearby contains entities:
+     - Target crab on shorelines or fish in shallows using action_type "HUNT" with "target_id".
+     - If fishing_spear is equipped, hunting succeeds efficiently.
 
-7. HUNTING & FISHING:
-  - If hunger < 50 and wildlife_nearby contains entities:
-    - Target crab on shorelines or fish in shallows using action_type "HUNT" with "target_id".
-    - If fishing_spear is equipped, hunting succeeds efficiently.
-
-TECHNOLOGY & MONUMENT PROGRESSION:
-1. INFRASTRUCTURE:
-   - "water_collector" (4 driftwood, 6 palm_frond, 2 limestone): Catches rainwater automatically. Highly recommended so you never die of dehydration away from the well.
-   
-2. SETTLEMENT MONUMENTS:
-   - "watchtower" (8 driftwood, 4 palm_frond, 4 limestone): High signal station with an eternal beacon. Prioritize this once basic shelter and crops exist.
-   - "smelting_kiln" (4 obsidian, 6 limestone, 2 flint): Advanced high-temperature furnace built with mined obsidian. Represents peak engineering.
-
-Prioritize building these enduring monuments when your survival needs (hunger > 50, hydration > 50, energy > 40) are secure and ingredients are collected.
+7. TECHNOLOGY & MONUMENT PROGRESSION:
+   - "water_collector" (4 driftwood, 6 palm_frond, 2 limestone): Catches rainwater automatically.
+   - "watchtower" (8 driftwood, 4 palm_frond, 4 limestone): High signal station with an eternal beacon.
+   - "smelting_kiln" (4 obsidian, 6 limestone, 2 flint): Advanced high-temperature furnace built with mined obsidian.
 
 Respond ONLY with a valid JSON object matching this schema:
 {
   "thought_monologue": "first-person internal monologue reflecting needs and strategy",
-  "action_type": "MOVE" | "FORAGE" | "CRAFT" | "BUILD" | "REST" | "DRINK" | "EXPAND_TERRAIN" | "FARM_HARVEST",
-  "target_id": "string matching an island_node id or null",
-  "recipe": "flint_hatchet" | "stone_pickaxe" | "fishing_spear" | "campfire" | "shelter" | "crop_plot" | "crafting_bench" | "roasted_coconut" | null,
+  "action_type": "MOVE" | "FORAGE" | "CRAFT" | "BUILD" | "REST" | "DRINK" | "EXPAND_TERRAIN" | "FARM_HARVEST" | "HUNT",
+  "target_id": "string matching an island_node or wildlife id, or null",
+  "recipe": "flint_hatchet" | "stone_pickaxe" | "fishing_spear" | "campfire" | "shelter" | "crop_plot" | "crafting_bench" | "roasted_coconut" | "water_collector" | "watchtower" | "smelting_kiln" | "raft" | null,
   "log_message": "concise third-person narrative action summary",
   "journal_log": {
     "title": "short milestone title",

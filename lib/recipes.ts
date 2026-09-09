@@ -115,6 +115,14 @@ export const RECIPE_REGISTRY: Record<string, Recipe> = {
     structureMeshType: 'smelting_kiln',
     inputs: { obsidian: 4, limestone: 6, flint: 2 },
     vitalImpact: { energy: -18 }
+  },
+  raft: {
+    id: 'raft',
+    name: 'Oceanbound Outrigger Raft',
+    category: 'structure',
+    structureMeshType: 'raft',
+    inputs: { driftwood: 6, palm_frond: 4 },
+    vitalImpact: { energy: -15 }
   }
 };
 

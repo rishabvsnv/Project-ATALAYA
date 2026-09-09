@@ -26,22 +26,20 @@ export function SurvivorMesh() {
   const toolRef = useRef<THREE.Group>(null);
 
   const plates = useGameStore((s) => s.plates);
+  const nodes = useGameStore((s) => s.nodes);
+  const structures = useGameStore((s) => s.structures);
   const targetPos = useGameStore((s) => s.targetPosition);
   const animState = useGameStore((s) => s.survivorState);
   const setAnimState = useGameStore((s) => s.setSurvivorState);
   const updateStorePos = useGameStore((s) => s.updateSurvivorPosition);
+  const equippedTool = useGameStore((s) => s.equippedTool);
 
   const currentPos = useRef(new THREE.Vector3(0, 0, 0));
   const walkTime = useRef(0);
   const swimTime = useRef(0);
+  const sailTime = useRef(0);
   const actionTime = useRef(0);
 
-  const nodes = useGameStore((s) => s.nodes);
-  const structures = useGameStore((s) => s.structures);
-
-  const equippedTool = useGameStore((s) => s.equippedTool);
-
-  // Set rotation order to YXZ so heading (Y) is evaluated before pitch (X)
   useEffect(() => {
     if (rootRef.current) {
       rootRef.current.rotation.order = 'YXZ';
@@ -71,14 +69,18 @@ export function SurvivorMesh() {
     obsidian: 0.75,
     shelter: 1.1,
     crafting_bench: 0.6,
-    campfire: 0.45
+    campfire: 0.45,
+    crop_plot: 0.6,
+    water_collector: 0.5,
+    watchtower: 0.9,
+    smelting_kiln: 0.8
   };
 
   const checkIsOnLand = (x: number, z: number) => {
     return plates.some((plate) => {
       const dx = x - plate.position[0];
       const dz = z - plate.position[2];
-      return Math.sqrt(dx * dx + dz * dz) <= plate.radius;
+      return Math.hypot(dx, dz) <= plate.radius;
     });
   };
 
@@ -89,6 +91,19 @@ export function SurvivorMesh() {
     let isMoving = false;
     const onLand = checkIsOnLand(currentPos.current.x, currentPos.current.z);
 
+    // Detect nearby active raft
+    const activeRaft = structures.find((st) => {
+      if (st.type !== 'raft') return false;
+      const dx = st.position[0] - currentPos.current.x;
+      const dz = st.position[2] - currentPos.current.z;
+      return Math.hypot(dx, dz) <= 2.0;
+    });
+
+    const isAboardRaft = !onLand && Boolean(activeRaft);
+
+    // -------------------------------------------------------------
+    // 1. HORIZONTAL LOCOMOTION & STEERING
+    // -------------------------------------------------------------
     if (targetPos) {
       const targetVec = new THREE.Vector3(...targetPos);
       const dx = targetVec.x - currentPos.current.x;
@@ -97,69 +112,69 @@ export function SurvivorMesh() {
 
       if (dist > 0.15) {
         isMoving = true;
-        
-        // Steady fixed units/second (no teleporting across long distances)
-        const moveSpeed = onLand ? 3.4 : 1.8;
+        const moveSpeed = onLand ? 3.4 : (isAboardRaft ? 2.8 : 1.7);
         const step = Math.min(dist, moveSpeed * delta);
 
-        // Linear constant velocity
         currentPos.current.x += (dx / dist) * step;
         currentPos.current.z += (dz / dist) * step;
 
-        root.position.x = currentPos.current.x;
-        root.position.z = currentPos.current.z;
-
-        // Direct angle towards waypoint (no Math.PI offset)
         const targetRot = Math.atan2(dx, dz);
         const diff = Math.atan2(
           Math.sin(targetRot - root.rotation.y),
           Math.cos(targetRot - root.rotation.y)
         );
-        root.rotation.y += diff * (1 - Math.exp(-10 * delta));
+        root.rotation.y += diff * (1 - Math.exp(-12 * delta));
 
-        updateStorePos([currentPos.current.x, currentPos.current.y, currentPos.current.z]);
-
-        if (!onLand && animState !== 'SWIM') {
-          setAnimState('SWIM');
-        } else if (onLand && animState === 'SWIM') {
+        if (!onLand) {
+          const nextState = isAboardRaft ? 'SAIL' : 'SWIM';
+          if (animState !== nextState) setAnimState(nextState);
+        } else if (onLand && (animState === 'SWIM' || animState === 'SAIL')) {
           setAnimState('WALK');
         }
       } else {
-        // Arrived at destination waypoint
         if (!onLand) {
-          if (animState !== 'SWIM') setAnimState('SWIM');
-        } else if (animState === 'WALK' || animState === 'SWIM') {
+          const nextState = isAboardRaft ? 'SAIL' : 'SWIM';
+          if (animState !== nextState) setAnimState(nextState);
+        } else if (animState === 'WALK') {
           setAnimState('IDLE');
         }
       }
     }
 
     // -------------------------------------------------------------
-    // SHORELINE ELEVATION & SHORE CLIMBING CALIBRATION
+    // 2. SINGLE VERTICAL CALIBRATION & LERP
     // -------------------------------------------------------------
-    const targetY = onLand ? 0.0 : -0.72;
+    // Dry land = 0.0, aboard raft deck = -0.15, submerged in water = -0.72
+    const targetY = onLand ? 0.0 : (isAboardRaft ? -0.15 : -0.72);
+    const elevationSpeed = onLand ? 14.0 : 6.0;
 
-    // Ascend up onto land much faster than sinking into water (prevents ground clipping)
-    const elevationSpeed = onLand ? 14.0 : 5.0;
     currentPos.current.y = THREE.MathUtils.lerp(
       currentPos.current.y,
       targetY,
       1 - Math.exp(-elevationSpeed * delta)
     );
 
-    // If on land and still slightly submerged from water exit, clamp to prevent dipping below ground
-    if (onLand && currentPos.current.y < 0) {
-      // Rapidly pull feet above ground level
+    if (onLand && currentPos.current.y < 0.0) {
       currentPos.current.y = THREE.MathUtils.lerp(currentPos.current.y, 0.0, 1 - Math.exp(-18 * delta));
     }
 
+    root.position.x = currentPos.current.x;
+    root.position.z = currentPos.current.z;
+    updateStorePos([currentPos.current.x, currentPos.current.y, currentPos.current.z]);
+
+    // Effective Animation State
     let effectiveState: SurvivorAnimState = animState;
-    if (!onLand) {
+    if (isAboardRaft) {
+      effectiveState = 'SAIL';
+    } else if (!onLand) {
       effectiveState = 'SWIM';
     } else if (isMoving) {
       effectiveState = 'WALK';
     }
 
+    // -------------------------------------------------------------
+    // 3. PROCEDURAL KINEMATICS
+    // -------------------------------------------------------------
     const t = performance.now() * 0.001;
 
     const hips = hipsRef.current;
@@ -180,11 +195,9 @@ export function SurvivorMesh() {
       return;
     }
 
-    tool.visible = effectiveState === 'CHOP';
+    tool.visible = effectiveState === 'CHOP' || effectiveState === 'SAIL';
 
-    // -------------------------------------------------------------
-    // SWIMMING KINEMATICS (Face +Z forward, positive X pitch into water)
-    // -------------------------------------------------------------
+    // SWIMMING
     if (effectiveState === 'SWIM') {
       swimTime.current += delta * (isMoving ? 5.5 : 2.5);
       const sw = swimTime.current;
@@ -192,12 +205,10 @@ export function SurvivorMesh() {
       const buoyancy = Math.sin(sw * 2.0) * 0.03;
       root.position.y = currentPos.current.y + buoyancy;
 
-      // Positive X rotation pitches the +Z face down into the water
-      root.rotation.x = THREE.MathUtils.lerp(root.rotation.x, Math.PI / 2.5, 1 - Math.exp(-6 * delta));
+      root.rotation.x = THREE.MathUtils.lerp(root.rotation.x, -1.25, 1 - Math.exp(-6 * delta));
       root.rotation.z = Math.sin(sw) * 0.08;
 
-      // Head looks UP and forward relative to the angled body
-      head.rotation.x = -0.65;
+      head.rotation.x = 0.65;
       head.rotation.y = Math.sin(sw * 0.5) * 0.12;
 
       chest.rotation.set(0, 0, 0);
@@ -205,7 +216,6 @@ export function SurvivorMesh() {
       hips.position.y = 0.46;
       hips.rotation.set(0, 0, 0);
 
-      // Front crawl arm strokes
       const strokeL = Math.sin(sw);
       const strokeR = Math.sin(sw + Math.PI);
 
@@ -215,7 +225,6 @@ export function SurvivorMesh() {
       lfa.rotation.set(Math.max(0, -strokeL) * 0.8 + 0.3, 0, 0);
       rfa.rotation.set(Math.max(0, -strokeR) * 0.8 + 0.3, 0, 0);
 
-      // Submerged flutter kicks
       const kickL = Math.sin(sw * 1.8);
       const kickR = Math.sin(sw * 1.8 + Math.PI);
 
@@ -228,11 +237,37 @@ export function SurvivorMesh() {
       if (pack) pack.rotation.x = 0;
     }
 
-    // -------------------------------------------------------------
-    // WALKING KINEMATICS
-    // -------------------------------------------------------------
+    // SAILING
+    else if (effectiveState === 'SAIL') {
+      sailTime.current += delta * (isMoving ? 3.5 : 1.8);
+      const st = sailTime.current;
+
+      root.rotation.x = THREE.MathUtils.lerp(root.rotation.x, Math.sin(st * 1.5) * 0.04, 1 - Math.exp(-8 * delta));
+      root.rotation.z = THREE.MathUtils.lerp(root.rotation.z, Math.cos(st * 1.2) * 0.04, 1 - Math.exp(-8 * delta));
+      root.position.y = currentPos.current.y + Math.sin(st * 2) * 0.025;
+
+      hips.position.y = 0.46;
+      hips.rotation.set(0, 0, 0);
+      chest.rotation.set(0.05, 0, 0);
+      head.rotation.set(-0.02, Math.sin(st * 0.6) * 0.1, 0);
+
+      // Wide, balanced sailing stance
+      lth.rotation.set(0.08, 0, -0.15);
+      rth.rotation.set(0.08, 0, 0.15);
+      lsh.rotation.set(0.1, 0, 0);
+      rsh.rotation.set(0.1, 0, 0);
+
+      // Holding rudder or outrigger mast
+      lua.rotation.set(-0.35, 0.1, -0.25);
+      rua.rotation.set(-0.55, -0.15, 0.2);
+      lfa.rotation.set(0.4, 0, 0);
+      rfa.rotation.set(0.6, 0, 0);
+
+      if (pack) pack.rotation.x = 0;
+    }
+
+    // WALKING
     else if (effectiveState === 'WALK') {
-      // Faster recovery to upright posture when stepping out of water
       root.rotation.x = THREE.MathUtils.lerp(root.rotation.x, 0, 1 - Math.exp(-14 * delta));
       root.rotation.z = THREE.MathUtils.lerp(root.rotation.z, 0, 1 - Math.exp(-14 * delta));
 
@@ -244,8 +279,7 @@ export function SurvivorMesh() {
       const armL = Math.sin(w + Math.PI + 0.1);
       const armR = Math.sin(w + 0.1);
 
-      // Keep feet anchored cleanly above island plate surface
-      root.position.y = Math.max(0, currentPos.current.y) + Math.abs(Math.sin(w * 2)) * 0.055;
+      root.position.y = currentPos.current.y + Math.abs(Math.sin(w * 2)) * 0.055;
       hips.position.y = 0.46;
       hips.rotation.z = Math.sin(w) * 0.06;
       hips.rotation.y = Math.sin(w) * 0.08;
@@ -274,9 +308,7 @@ export function SurvivorMesh() {
       if (pack) pack.rotation.x = Math.sin(w * 2) * 0.04;
     }
 
-    // -------------------------------------------------------------
-    // CHOPPING KINEMATICS
-    // -------------------------------------------------------------
+    // CHOPPING
     else if (effectiveState === 'CHOP') {
       root.rotation.x = 0;
       root.rotation.z = 0;
@@ -305,9 +337,7 @@ export function SurvivorMesh() {
       rsh.rotation.set(0.25, 0, 0);
     }
 
-    // -------------------------------------------------------------
-    // SLEEPING KINEMATICS
-    // -------------------------------------------------------------
+    // SLEEPING
     else if (effectiveState === 'SLEEP') {
       root.position.y = 0.12;
       root.rotation.x = -Math.PI / 2;
@@ -334,9 +364,7 @@ export function SurvivorMesh() {
       if (pack) pack.rotation.x = 0;
     }
 
-    // -------------------------------------------------------------
-    // IDLE KINEMATICS
-    // -------------------------------------------------------------
+    // IDLE
     else {
       root.position.y = currentPos.current.y;
       root.rotation.x = THREE.MathUtils.lerp(root.rotation.x, 0, 1 - Math.exp(-8 * delta));
@@ -364,49 +392,48 @@ export function SurvivorMesh() {
     }
 
     // -------------------------------------------------------------
-    // OBSTACLE COLLISION RESOLUTION (2D Circle Push)
+    // 4. OBSTACLE COLLISION RESOLUTION (On Land Only)
     // -------------------------------------------------------------
-    const survivorRadius = 0.28;
+    if (onLand) {
+      const survivorRadius = 0.28;
 
-    // 1. Collide with Natural Resource Nodes
-    for (const node of nodes) {
-      if (node.type === 'water_spring') continue; // Allow walking into water springs
-      const r = (COLLIDERS[node.type as keyof typeof COLLIDERS] ?? 0.4) + survivorRadius;
-      
-      const ox = currentPos.current.x - node.position[0];
-      const oz = currentPos.current.z - node.position[2];
-      const distSq = ox * ox + oz * oz;
+      for (const node of nodes) {
+        if (node.type === 'water_spring') continue;
+        const r = (COLLIDERS[node.type as keyof typeof COLLIDERS] ?? 0.4) + survivorRadius;
 
-      if (distSq < r * r && distSq > 0.0001) {
-        const d = Math.sqrt(distSq);
-        const overlap = r - d;
-        // Push survivor outward along collision normal
-        currentPos.current.x += (ox / d) * overlap;
-        currentPos.current.z += (oz / d) * overlap;
+        const ox = currentPos.current.x - node.position[0];
+        const oz = currentPos.current.z - node.position[2];
+        const distSq = ox * ox + oz * oz;
+
+        if (distSq < r * r && distSq > 0.0001) {
+          const d = Math.sqrt(distSq);
+          const overlap = r - d;
+          currentPos.current.x += (ox / d) * overlap;
+          currentPos.current.z += (oz / d) * overlap;
+        }
       }
-    }
 
-    // 2. Collide with Placed Structures
-    for (const struct of structures) {
-      const r = (COLLIDERS[struct.type as keyof typeof COLLIDERS] ?? 0.5) + survivorRadius;
-      
-      const ox = currentPos.current.x - struct.position[0];
-      const oz = currentPos.current.z - struct.position[2];
-      const distSq = ox * ox + oz * oz;
+      for (const struct of structures) {
+        if (struct.type === 'raft') continue;
+        const r = (COLLIDERS[struct.type as keyof typeof COLLIDERS] ?? 0.5) + survivorRadius;
 
-      if (distSq < r * r && distSq > 0.0001) {
-        const d = Math.sqrt(distSq);
-        const overlap = r - d;
-        // Push survivor outward so they slide along walls/fire
-        currentPos.current.x += (ox / d) * overlap;
-        currentPos.current.z += (oz / d) * overlap;
+        const ox = currentPos.current.x - struct.position[0];
+        const oz = currentPos.current.z - struct.position[2];
+        const distSq = ox * ox + oz * oz;
+
+        if (distSq < r * r && distSq > 0.0001) {
+          const d = Math.sqrt(distSq);
+          const overlap = r - d;
+          currentPos.current.x += (ox / d) * overlap;
+          currentPos.current.z += (oz / d) * overlap;
+        }
       }
     }
   });
 
   return (
     <group ref={rootRef} position={[0, 0, 0]}>
-      {/* Pelvis / Cargo Belt */}
+      {/* Pelvis / Belt */}
       <group ref={hipsRef} position={[0, 0.46, 0]}>
         <mesh castShadow position={[0, 0.04, 0]}>
           <boxGeometry args={[0.34, 0.16, 0.22]} />
@@ -456,7 +483,7 @@ export function SurvivorMesh() {
             </mesh>
           </group>
 
-          {/* Head & Features */}
+          {/* Head */}
           <group ref={headRef} position={[0, 0.45, 0.02]}>
             <mesh castShadow position={[0, 0.06, 0]}>
               <boxGeometry args={[0.22, 0.24, 0.22]} />
@@ -502,7 +529,7 @@ export function SurvivorMesh() {
             </group>
           </group>
 
-          {/* Right Arm & Hatchet */}
+          {/* Right Arm & Socketed Dynamic Tool */}
           <group ref={rightUpperArmRef} position={[0.26, 0.26, 0]}>
             <mesh castShadow position={[0, -0.06, 0]}>
               <boxGeometry args={[0.13, 0.18, 0.14]} />
@@ -518,15 +545,46 @@ export function SurvivorMesh() {
                 <meshLambertMaterial color={palette.skinShadow} flatShading />
               </mesh>
 
+              {/* Dynamic Tool Mount */}
               <group ref={toolRef} position={[0.02, -0.22, 0.08]} rotation={[0.4, 0, 0]}>
-                <mesh castShadow position={[0, 0.08, 0]}>
-                  <cylinderGeometry args={[0.02, 0.025, 0.5, 6]} />
-                  <meshLambertMaterial color={palette.wood} flatShading />
-                </mesh>
-                <mesh castShadow position={[0, 0.28, 0.05]} rotation={[0, 0, Math.PI / 2]}>
-                  <coneGeometry args={[0.08, 0.16, 4]} />
-                  <meshLambertMaterial color={palette.stone} flatShading />
-                </mesh>
+                {equippedTool === 'stone_pickaxe' ? (
+                  <group>
+                    <mesh castShadow position={[0, 0.12, 0]}>
+                      <cylinderGeometry args={[0.02, 0.025, 0.55, 6]} />
+                      <meshLambertMaterial color={palette.wood} flatShading />
+                    </mesh>
+                    <mesh castShadow position={[0, 0.36, 0]} rotation={[0, 0, Math.PI / 2]}>
+                      <cylinderGeometry args={[0.04, 0.04, 0.38, 5]} />
+                      <meshLambertMaterial color={palette.stone} flatShading />
+                    </mesh>
+                    <mesh castShadow position={[0.22, 0.36, 0]} rotation={[0, 0, -Math.PI / 2]}>
+                      <coneGeometry args={[0.04, 0.12, 4]} />
+                      <meshLambertMaterial color="#334155" flatShading />
+                    </mesh>
+                  </group>
+                ) : equippedTool === 'fishing_spear' ? (
+                  <group>
+                    <mesh castShadow position={[0, 0.28, 0]}>
+                      <cylinderGeometry args={[0.018, 0.02, 0.9, 6]} />
+                      <meshLambertMaterial color={palette.wood} flatShading />
+                    </mesh>
+                    <mesh castShadow position={[0, 0.74, 0]}>
+                      <coneGeometry args={[0.045, 0.22, 4]} />
+                      <meshLambertMaterial color="#0f172a" flatShading />
+                    </mesh>
+                  </group>
+                ) : (
+                  <group>
+                    <mesh castShadow position={[0, 0.08, 0]}>
+                      <cylinderGeometry args={[0.02, 0.025, 0.5, 6]} />
+                      <meshLambertMaterial color={palette.wood} flatShading />
+                    </mesh>
+                    <mesh castShadow position={[0, 0.28, 0.05]} rotation={[0, 0, Math.PI / 2]}>
+                      <coneGeometry args={[0.08, 0.16, 4]} />
+                      <meshLambertMaterial color={palette.stone} flatShading />
+                    </mesh>
+                  </group>
+                )}
               </group>
             </group>
           </group>
@@ -567,57 +625,6 @@ export function SurvivorMesh() {
             </mesh>
           </group>
         </group>
-      </group>
-      {/* Dynamic Tool Mount */}
-      <group ref={toolRef} position={[0.02, -0.22, 0.08]} rotation={[0.4, 0, 0]}>
-        {equippedTool === 'stone_pickaxe' ? (
-          // Pickaxe Geometry
-          <group>
-            {/* Shaft */}
-            <mesh castShadow position={[0, 0.12, 0]}>
-              <cylinderGeometry args={[0.02, 0.025, 0.55, 6]} />
-              <meshLambertMaterial color={palette.wood} flatShading />
-            </mesh>
-            {/* Pick Head Arch */}
-            <mesh castShadow position={[0, 0.36, 0]} rotation={[0, 0, Math.PI / 2]}>
-              <cylinderGeometry args={[0.04, 0.04, 0.38, 5]} />
-              <meshLambertMaterial color={palette.stone} flatShading />
-            </mesh>
-            {/* Pick Point */}
-            <mesh castShadow position={[0.22, 0.36, 0]} rotation={[0, 0, -Math.PI / 2]}>
-              <coneGeometry args={[0.04, 0.12, 4]} />
-              <meshLambertMaterial color="#334155" flatShading />
-            </mesh>
-          </group>
-        ) : equippedTool === 'fishing_spear' ? (
-          // Spear Geometry
-          <group>
-            {/* Long Shaft */}
-            <mesh castShadow position={[0, 0.28, 0]}>
-              <cylinderGeometry args={[0.018, 0.02, 0.9, 6]} />
-              <meshLambertMaterial color={palette.wood} flatShading />
-            </mesh>
-            {/* Spear Tip */}
-            <mesh castShadow position={[0, 0.74, 0]}>
-              <coneGeometry args={[0.045, 0.22, 4]} />
-              <meshLambertMaterial color="#0f172a" flatShading />
-            </mesh>
-          </group>
-        ) : (
-          // Flint Hatchet Geometry (Default / Basic)
-          <group>
-            {/* Handle */}
-            <mesh castShadow position={[0, 0.08, 0]}>
-              <cylinderGeometry args={[0.02, 0.025, 0.5, 6]} />
-              <meshLambertMaterial color={palette.wood} flatShading />
-            </mesh>
-            {/* Axe Blade */}
-            <mesh castShadow position={[0, 0.28, 0.05]} rotation={[0, 0, Math.PI / 2]}>
-              <coneGeometry args={[0.08, 0.16, 4]} />
-              <meshLambertMaterial color={palette.stone} flatShading />
-            </mesh>
-          </group>
-        )}
       </group>
     </group>
   );

@@ -12,6 +12,7 @@ const ringColor: Record<InterventionTool, string> = {
   ORDER_MOVE: '#f43f5e',
   BUILD_HOUSE: '#a855f7',
   BUILD_FARM: '#84cc16',
+  BUILD_RAFT: '#0ea5e9',
   BUILD_BEACON: '#f59e0b',
   BUILD_KILN: '#ea580c'
 };
@@ -82,6 +83,23 @@ export function InteractiveTerrain() {
           ],
           logs: [
             `[God-Mode] Established Farm Plot at [${pt[0].toFixed(1)}, ${pt[2].toFixed(1)}]`,
+            ...s.logs.slice(0, 18)
+          ]
+        }));
+        break;
+      case 'BUILD_RAFT':
+        useGameStore.setState((s) => ({
+          structures: [
+            ...s.structures,
+            {
+              id: `struct_raft_${Date.now()}`,
+              type: 'raft',
+              position: pt,
+              rotationY: Math.random() * Math.PI * 2
+            }
+          ],
+          logs: [
+            `[God-Mode] Launched Outrigger Raft at [${pt[0].toFixed(1)}, ${pt[2].toFixed(1)}]`,
             ...s.logs.slice(0, 18)
           ]
         }));

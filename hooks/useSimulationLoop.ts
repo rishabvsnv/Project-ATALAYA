@@ -26,13 +26,18 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
     if (state.isProcessing) return;
 
     state.setProcessing(true);
-
     tickCountRef.current += 1;
 
-    // Swimming metrics & penalties
-    const isSwimming = state.survivorState === 'SWIM';
-    const swimTempDelta = isSwimming ? -2.2 : 0;
-    const swimEnergyDelta = isSwimming ? -14 : 0;
+    // Detect if survivor is near a built raft
+    const activeRaft = state.structures.find((s) => {
+      if (s.type !== 'raft') return false;
+      const dx = s.position[0] - state.survivorPosition[0];
+      const dz = s.position[2] - state.survivorPosition[2];
+      return Math.hypot(dx, dz) <= 2.2;
+    });
+
+    const isSwimming = state.survivorState === 'SWIM' && !activeRaft;
+    const isSailing = activeRaft !== undefined && state.survivorPosition[1] <= -0.15;
 
     // Transition weather periodically
     if (tickCountRef.current % 8 === 0) {
@@ -41,6 +46,53 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
       state.setWeather(nextWeather);
       audioManager?.updateWeatherAudio(nextWeather);
     }
+
+    // Weather impact calculations
+    let weatherTempDelta = 0;
+    let weatherHydrationDelta = 0;
+
+    if (state.weather === 'Rain') {
+      weatherTempDelta = -1.2;
+      weatherHydrationDelta = 4;
+    } else if (state.weather === 'Storm') {
+      weatherTempDelta = -2.5;
+      weatherHydrationDelta = 6;
+    } else if (state.timeOfDay === 'Day' && state.weather === 'Clear') {
+      weatherTempDelta = 0.5;
+    }
+
+    // Water traversal penalties
+    const waterTempDelta = isSwimming ? -2.2 : 0;
+    const waterEnergyDelta = isSwimming ? -14 : (isSailing ? -2 : 0);
+    const netTempDelta = isSailing ? Math.max(0, weatherTempDelta) : weatherTempDelta + waterTempDelta;
+    const tempRecovery = state.vitals.temperatureC < 36.5 ? 1.5 : 0;
+
+    // Unified structures update
+    const isRaining = state.weather === 'Rain' || state.weather === 'Storm';
+    const updatedStructures = state.structures.map((struct) => {
+      if (struct.type === 'crop_plot') {
+        let currentWater = struct.waterLevel ?? 40;
+        if (isRaining) currentWater = Math.min(100, currentWater + 30);
+        else currentWater = Math.max(0, currentWater - 6);
+
+        let currentStage = struct.cropStage ?? 1;
+        if (currentWater > 15 && currentStage < 3 && tickCountRef.current % 4 === 0) {
+          currentStage += 1;
+        }
+        return { ...struct, waterLevel: currentWater, cropStage: currentStage };
+      }
+
+      if (struct.type === 'water_collector') {
+        let level = struct.waterLevel ?? 0;
+        if (isRaining) level = Math.min(100, level + 35);
+        else level = Math.max(0, level - 2);
+        return { ...struct, waterLevel: level };
+      }
+
+      return struct;
+    });
+
+    useGameStore.setState({ structures: updatedStructures });
 
     const payload = {
       day: state.day,
@@ -51,9 +103,10 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
         vitals: state.vitals,
         inventory: state.inventory,
         equipped_tool: state.equippedTool,
-        is_swimming: isSwimming
+        is_swimming: isSwimming,
+        is_sailing: isSailing
       },
-      structures: state.structures.map((s) => ({
+      structures: updatedStructures.map((s) => ({
         id: s.id,
         type: s.type,
         cropStage: s.cropStage,
@@ -74,76 +127,8 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
         id: w.id,
         type: w.type,
         position: w.position
-      })),
+      }))
     };
-
-    // Environmental impacts
-    let weatherTempDelta = 0;
-    let weatherHydrationDelta = 0;
-
-    if (state.weather === 'Rain') {
-      weatherTempDelta = -1.2;
-      weatherHydrationDelta = 4;
-    } else if (state.weather === 'Storm') {
-      weatherTempDelta = -2.5;
-      weatherHydrationDelta = 6;
-    } else if (state.timeOfDay === 'Day' && state.weather === 'Clear') {
-      weatherTempDelta = 0.5;
-    }
-
-    const netTempDelta = weatherTempDelta + swimTempDelta;
-    const tempRecovery = state.vitals.temperatureC < 36.5 ? 1.5 : 0;
-
-    // Advance farming crops on every tick
-    const isRaining = state.weather === 'Rain' || state.weather === 'Storm';
-
-    const processedStructures = state.structures.map((struct) => {
-      // Update Crop Beds
-      if (struct.type === 'crop_plot') {
-        let currentWater = struct.waterLevel ?? 40;
-        if (isRaining) currentWater = Math.min(100, currentWater + 30);
-        else currentWater = Math.max(0, currentWater - 6);
-
-        let currentStage = struct.cropStage ?? 1;
-        if (currentWater > 15 && currentStage < 3 && tickCountRef.current % 4 === 0) {
-          currentStage += 1;
-        }
-        return { ...struct, waterLevel: currentWater, cropStage: currentStage };
-      }
-
-      // Update Rain Cistern
-      if (struct.type === 'water_collector') {
-        let level = struct.waterLevel ?? 0;
-        if (isRaining) {
-          level = Math.min(100, level + 35); // Rapid catchment
-        } else {
-          level = Math.max(0, level - 2);    // Minimal sealed evaporation
-        }
-        return { ...struct, waterLevel: level };
-      }
-
-      return struct;
-    });
-
-    useGameStore.setState({ structures: processedStructures });
-
-    const updatedStructures = state.structures.map((s) => {
-      if (s.type !== 'crop_plot') return s;
-
-      let currentWater = s.waterLevel ?? 40;
-      if (isRaining) currentWater = Math.min(100, currentWater + 30);
-      else currentWater = Math.max(0, currentWater - 6);
-
-      let currentStage = s.cropStage ?? 1; // Auto-seed on build
-      // Crops only grow if watered
-      if (currentWater > 15 && currentStage < 3 && tickCountRef.current % 4 === 0) {
-        currentStage += 1;
-      }
-
-      return { ...s, waterLevel: currentWater, cropStage: currentStage };
-    });
-
-    useGameStore.setState({ structures: updatedStructures });
 
     try {
       abortControllerRef.current?.abort();
@@ -162,7 +147,7 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
 
       if (!action || !isRunningRef.current) return;
 
-      // 1. Capture journal log
+      // 1. Journal Chronicle
       if (action.journal_log) {
         state.addJournalEntry({
           day: state.day,
@@ -174,8 +159,10 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
         });
       }
 
-      // 2. Kinesthetic posture (preserve SWIM if in water)
-      if (!isSwimming) {
+      // 2. State Kinematics
+      if (isSailing) {
+        state.setSurvivorState('SAIL');
+      } else if (!isSwimming) {
         if (action.action_type === 'REST') {
           state.setSurvivorState('SLEEP');
         } else if (['FORAGE', 'BUILD', 'CRAFT', 'EXPAND_TERRAIN'].includes(action.action_type)) {
@@ -190,42 +177,44 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
       // 3. Terraforming
       if (action.action_type === 'EXPAND_TERRAIN') {
         const success = state.expandNewArea('adjacent');
-        if (success) {
-          audioManager?.playTerraformSound();
-          state.applyActionOutcome(
-            action.thought_monologue,
-            'Constructed a pontoon crossing and reclaimed a new islet!',
-            {
-              hunger: -6,
-              energy: -15 + swimEnergyDelta,
-              hydration: -10 + weatherHydrationDelta,
-              temperatureC: netTempDelta
-            }
-          );
-        } else {
-          state.applyActionOutcome(
-            action.thought_monologue,
-            'Attempted terraforming but lacked required timber and rock.',
-            {
-              hunger: -1,
-              energy: -2 + swimEnergyDelta,
-              hydration: -2 + weatherHydrationDelta,
-              temperatureC: netTempDelta
-            }
-          );
-        }
+        state.applyActionOutcome(
+          action.thought_monologue,
+          success
+            ? 'Constructed a pontoon crossing and reclaimed a new islet!'
+            : 'Attempted terraforming but lacked required timber and rock.',
+          {
+            hunger: success ? -6 : -1,
+            energy: (success ? -15 : -2) + waterEnergyDelta,
+            hydration: (success ? -10 : -2) + weatherHydrationDelta,
+            temperatureC: netTempDelta
+          }
+        );
+        if (success) audioManager?.playTerraformSound();
         return;
       }
 
       // 4. Drinking
       if (action.action_type === 'DRINK') {
+        const cistern = state.structures.find(
+          (s) => s.type === 'water_collector' && (s.waterLevel ?? 0) >= 20
+        );
+
+        if (cistern) {
+          state.setTargetPosition(cistern.position);
+          useGameStore.setState((s) => ({
+            structures: s.structures.map((st) =>
+              st.id === cistern.id ? { ...st, waterLevel: Math.max(0, (st.waterLevel ?? 20) - 25) } : st
+            )
+          }));
+        }
+
         state.applyActionOutcome(
           action.thought_monologue,
-          'Drank cool freshwater to replenish hydration.',
+          cistern ? 'Drank clean water gathered in the rain cistern.' : 'Drank cool freshwater to replenish hydration.',
           {
             hunger: -1,
-            energy: 4 + swimEnergyDelta,
-            hydration: 45 + weatherHydrationDelta,
+            energy: 5 + waterEnergyDelta,
+            hydration: cistern ? 55 : 45 + weatherHydrationDelta,
             temperatureC: netTempDelta
           }
         );
@@ -242,7 +231,7 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
               action.log_message,
               {
                 hunger: -4,
-                energy: -8 + swimEnergyDelta,
+                energy: -8 + waterEnergyDelta,
                 hydration: -6 + weatherHydrationDelta,
                 temperatureC: netTempDelta,
                 health: 0
@@ -256,7 +245,7 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
           `Attempted to craft ${action.recipe ?? 'item'}, but lacked ingredients.`,
           {
             hunger: -1,
-            energy: -2 + swimEnergyDelta,
+            energy: -2 + waterEnergyDelta,
             hydration: -2 + weatherHydrationDelta,
             temperatureC: netTempDelta,
             health: 0
@@ -265,11 +254,10 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
         return;
       }
 
-      // 6. Harvesting with Tool Multipliers
+      // 6. Harvesting
       if (action.action_type === 'FORAGE') {
         const targetNode = state.nodes.find((n) => n.id === action.target_id);
         if (targetNode) {
-          // Hardness gating: Obsidian requires Stone Pickaxe
           if (targetNode.type === 'obsidian' && state.equippedTool !== 'stone_pickaxe') {
             state.applyActionOutcome(
               action.thought_monologue,
@@ -283,22 +271,20 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
           audioManager?.playChopSound();
 
           const baseDrop = NODE_HARVEST_TABLE[targetNode.type] ?? { item: 'driftwood', amount: 1 };
-
-          // Tool Tier Yield Multipliers
           let multiplier = 1;
           let energyCost = -5;
 
           if (targetNode.type === 'palm' && state.equippedTool === 'flint_hatchet') {
-            multiplier = 2.5; // Yields 5 wood
+            multiplier = 2.5;
             energyCost = -3;
           } else if (targetNode.type === 'limestone' && state.equippedTool === 'stone_pickaxe') {
-            multiplier = 2.0; // Yields 4 limestone
+            multiplier = 2.0;
             energyCost = -3;
           } else if (targetNode.type === 'obsidian' && state.equippedTool === 'stone_pickaxe') {
-            multiplier = 1.5; // Yields 3 flint/ore
+            multiplier = 1.5;
             energyCost = -6;
           } else if (state.equippedTool === null) {
-            multiplier = 0.5; // Bare-hands penalty: 1 drop
+            multiplier = 0.5;
             energyCost = -8;
           }
 
@@ -310,7 +296,7 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
             `${action.log_message} (+${finalAmount} ${baseDrop.item})`,
             {
               hunger: -3,
-              energy: energyCost + swimEnergyDelta,
+              energy: energyCost + waterEnergyDelta,
               hydration: -5 + weatherHydrationDelta,
               temperatureC: netTempDelta,
               health: 0
@@ -321,35 +307,12 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
         }
       }
 
-      // 7. Locomotion
-      if (action.action_type === 'MOVE') {
-        const targetNode = state.nodes.find((n) => n.id === action.target_id);
-        if (targetNode) {
-          state.setTargetPosition(targetNode.position);
-        }
-        state.applyActionOutcome(
-          action.thought_monologue,
-          isSwimming ? 'Swimming through open water currents.' : action.log_message,
-          {
-            hunger: -2,
-            energy: -3 + swimEnergyDelta,
-            hydration: -4 + weatherHydrationDelta,
-            temperatureC: netTempDelta,
-            health: state.vitals.temperatureC < 33 ? -4 : 0
-          }
-        );
-        return;
-      }
-
-      // 8. Hunting & Fishing Execution
+      // 7. Hunting
       if (action.action_type === 'HUNT') {
         const targetFauna = state.wildlife.find((w) => w.id === action.target_id) ?? state.wildlife[0];
-
         if (targetFauna) {
           state.setTargetPosition(targetFauna.position);
           const hasSpear = state.equippedTool === 'fishing_spear';
-
-          // Spear grants guaranteed high catch, bare hands can fail or yield less
           const dropItem = targetFauna.type === 'crab' ? 'crab_meat' : 'raw_fish';
           const amount = hasSpear ? 2 : 1;
           const currentCount = state.inventory[dropItem] ?? 0;
@@ -363,7 +326,7 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
               : `Caught a ${targetFauna.type} by hand with great effort. (+${amount} ${dropItem})`,
             {
               hunger: 15,
-              energy: hasSpear ? -6 : -14,
+              energy: (hasSpear ? -6 : -14) + waterEnergyDelta,
               hydration: -4,
               health: 0
             },
@@ -373,38 +336,29 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
         }
       }
 
-      if (action.action_type === 'DRINK') {
-        const cistern = state.structures.find(
-          (s) => s.type === 'water_collector' && (s.waterLevel ?? 0) >= 20
+      // 8. Locomotion
+      if (action.action_type === 'MOVE') {
+        const targetNode = state.nodes.find((n) => n.id === action.target_id);
+        if (targetNode) state.setTargetPosition(targetNode.position);
+
+        state.applyActionOutcome(
+          action.thought_monologue,
+          isSailing ? 'Sailing across open waters on the raft.' : (isSwimming ? 'Swimming through cold currents.' : action.log_message),
+          {
+            hunger: -2,
+            energy: -3 + waterEnergyDelta,
+            hydration: -4 + weatherHydrationDelta,
+            temperatureC: netTempDelta,
+            health: state.vitals.temperatureC < 33 ? -4 : 0
+          }
         );
-
-        if (cistern) {
-          state.setTargetPosition(cistern.position);
-          // Draw water from the cistern
-          useGameStore.setState((s) => ({
-            structures: s.structures.map((st) =>
-              st.id === cistern.id ? { ...st, waterLevel: Math.max(0, (st.waterLevel ?? 20) - 25) } : st
-            )
-          }));
-
-          state.applyActionOutcome(
-            action.thought_monologue,
-            'Drank cool filtered rainwater stored in the catchment cistern.',
-            {
-              hydration: 55,
-              energy: 6,
-              hunger: -1,
-              temperatureC: 0
-            }
-          );
-          return;
-        }
+        return;
       }
 
-      // 8. Resting Fallback
+      // 9. Resting Fallback
       state.applyActionOutcome(
         action.thought_monologue,
-        isSwimming ? 'Treading cold water trying to keep afloat.' : action.log_message,
+        isSailing ? 'Drifting safely upon the raft.' : (isSwimming ? 'Treading cold water trying to keep afloat.' : action.log_message),
         {
           hunger: -1,
           energy: isSwimming ? -8 : 16,
@@ -440,9 +394,7 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
       }, currentInterval);
     }
 
-    if (!isPaused) {
-      scheduleNext();
-    }
+    if (!isPaused) scheduleNext();
 
     return () => {
       if (timeoutIdRef.current) clearTimeout(timeoutIdRef.current);

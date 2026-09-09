@@ -11,7 +11,8 @@ export type SurvivorAnimState =
   | "CHOP"
   | "SLEEP"
   | "BUILD_LAND"
-  | "SWIM";
+  | "SWIM"
+  | 'SAIL';
 export type InterventionTool =
   | "INSPECT"
   | "ORDER_MOVE"
@@ -20,7 +21,8 @@ export type InterventionTool =
   | "BUILD_HOUSE"
   | "BUILD_FARM"
   | 'BUILD_BEACON'
-  | 'BUILD_KILN';
+  | 'BUILD_KILN'
+  | 'BUILD_RAFT';
 
 export type EquippedToolType =
   | "flint_hatchet"
@@ -46,7 +48,8 @@ export type StructureType =
   | 'bridge'
   | 'crop_plot'
   | 'watchtower'
-  | 'smelting_kiln';
+  | 'smelting_kiln'
+  | 'raft';
 
 export interface WorldStructure {
   id: string;

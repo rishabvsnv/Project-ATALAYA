@@ -5,6 +5,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { useGameStore, WorldStructure } from "@/lib/store";
 import { CampfireSmoke } from "./CampfireSmoke";
+import { RaftMesh } from "./RaftMesh";
 
 export function WorldStructures() {
   const structures = useGameStore((s) => s.structures);
@@ -32,6 +33,8 @@ export function WorldStructures() {
             return <WatchtowerMesh key={struct.id} struct={struct} />;
           case 'smelting_kiln':
             return <SmeltingKilnMesh key={struct.id} struct={struct} />;
+          case 'raft':
+            return <RaftMesh key={struct.id} position={struct.position} />;
           default:
             return null;
         }
