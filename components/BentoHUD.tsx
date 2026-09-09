@@ -34,6 +34,7 @@ import { useGameStore, SimulationSpeed, InterventionTool } from '@/lib/store';
 import { audioManager } from '@/lib/audioManager';
 import { BookOpen } from 'lucide-react';
 import { Home } from 'lucide-react';
+import { Wheat } from 'lucide-react';
 
 export function BentoHUD() {
   const vitals = useGameStore((s) => s.vitals);
@@ -67,7 +68,8 @@ export function BentoHUD() {
     { id: 'ORDER_MOVE', label: 'Move Waypoint', icon: <Navigation className="h-3.5 w-3.5" />, color: 'hover:text-rose-400' },
     { id: 'DROP_SUPPLY', label: 'Airdrop Crate', icon: <Gift className="h-3.5 w-3.5" />, color: 'hover:text-amber-400' },
     { id: 'PLANT_NODE', label: 'Plant Node', icon: <Sprout className="h-3.5 w-3.5" />, color: 'hover:text-emerald-400' },
-    { id: 'BUILD_HOUSE', label: 'Build House', icon: <Home className="h-3.5 w-3.5" />, color: 'hover:text-purple-400' }
+    { id: 'BUILD_HOUSE', label: 'Build House', icon: <Home className="h-3.5 w-3.5" />, color: 'hover:text-purple-400' },
+    { id: 'BUILD_FARM', label: 'Plant Farm', icon: <Wheat className="h-3.5 w-3.5" />, color: 'hover:text-lime-400' }
   ];
 
   const toggleAudio = () => {

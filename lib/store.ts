@@ -17,7 +17,8 @@ export type InterventionTool =
   | 'ORDER_MOVE'
   | "DROP_SUPPLY"
   | "PLANT_NODE"
-  | "BUILD_HOUSE";
+  | "BUILD_HOUSE"
+  | 'BUILD_FARM';
 
 export interface JournalEntry {
   id: string;
@@ -36,9 +37,12 @@ export interface WorldStructure {
     | "shelter"
     | "crafting_bench"
     | "water_collector"
-    | "bridge";
+    | "bridge"
+    | "crop_plot";
   position: [number, number, number];
   rotationY: number;
+  cropStage?: number;
+  waterLevel?: number;
 }
 
 export interface IslandPlate {

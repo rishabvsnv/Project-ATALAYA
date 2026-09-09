@@ -4,7 +4,7 @@ export interface Recipe {
   category: 'tool' | 'structure' | 'consumable';
   inputs: Record<string, number>;
   vitalImpact?: { health?: number; hunger?: number; energy?: number };
-  structureMeshType?: 'campfire' | 'shelter' | 'crafting_bench' | 'water_collector';
+  structureMeshType?: 'campfire' | 'shelter' | 'crafting_bench' | 'water_collector' | 'crop_plot';
 }
 
 export const RECIPE_REGISTRY: Record<string, Recipe> = {
@@ -49,6 +49,20 @@ export const RECIPE_REGISTRY: Record<string, Recipe> = {
     vitalImpact: {
       energy: 25,
       health: 10
+    }
+  },
+  crop_plot: {
+    id: 'crop_plot',
+    name: 'Tilled Soil Crop Bed',
+    category: 'structure',
+    structureMeshType: 'crop_plot',
+    inputs: {
+      driftwood: 3,
+      palm_frond: 3
+    },
+    vitalImpact: {
+      energy: -10,
+      health: 0
     }
   }
 };

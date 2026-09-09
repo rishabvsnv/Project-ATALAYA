@@ -3,7 +3,16 @@ import { z } from 'zod';
 
 const ActionSchema = z.object({
   thought_monologue: z.string().default('Surveying surroundings to plan next action.'),
-  action_type: z.enum(['MOVE', 'FORAGE', 'CRAFT', 'BUILD', 'REST', 'DRINK', 'EXPAND_TERRAIN']).default('FORAGE'),
+  action_type: z.enum([
+    'MOVE',
+    'FORAGE',
+    'CRAFT',
+    'BUILD',
+    'REST',
+    'DRINK',
+    'EXPAND_TERRAIN',
+    'FARM_HARVEST'
+  ]).default('FORAGE'),
   target_id: z.string().nullable().default(null),
   recipe: z.string().nullable().default(null),
   log_message: z.string().default('Survivor takes action.'),
@@ -28,23 +37,36 @@ export async function POST(req: Request) {
 Current World Context:
 ${JSON.stringify(worldContext, null, 2)}
 
-SURVIVAL STRATEGY:
-- If hydration < 35: Prioritize action_type "DRINK" (target_id can be null or a fresh_well).
-- If energy < 25: Prioritize action_type "REST".
-- If inventory has driftwood >= 6 and limestone >= 4: You can trigger "EXPAND_TERRAIN" to dredge and discover a new islet with new resources.
-- If ingredients are sufficient, craft structures ("campfire", "lean_to", "crafting_bench", "water_collector").
-- Otherwise: "FORAGE" accessible nodes or "MOVE" across plates.
-- JOURNALING: If this action represents a meaningful milestone (e.g., expanding an islet, building a structure, surviving a severe storm, or discovering new resources), provide a poetic, authentic "journal_log" entry written in first-person past tense. Otherwise keep "journal_log" null.
+SURVIVAL STRATEGY & EVOLUTION:
+1. IMMEDIATE THREATS:
+   - If hydration < 35: Prioritize action_type "DRINK".
+   - If energy < 25: Prioritize action_type "REST" (resting near or in a shelter yields maximum recovery).
+   - If weather is "Rain" or "Storm" and no "shelter" exists nearby, prioritize building one immediately.
+
+2. AGRICULTURE & LONG-TERM SUSTENANCE:
+   - If any "crop_plot" structure in the world has cropStage >= 3, your highest priority is "FARM_HARVEST" (target_id null or plot id) to establish food security.
+   - If no "crop_plot" exists and inventory has driftwood >= 3 and palm_frond >= 3: Choose action_type "BUILD" with recipe "crop_plot" to start a sustainable farm.
+
+3. ARCHITECTURE & EXPANSION:
+   - If no "shelter" exists and inventory has driftwood >= 5, palm_frond >= 4, limestone >= 2: Choose action_type "BUILD" with recipe "shelter".
+   - If night/dusk falls and cold threatens, BUILD "campfire" (needs driftwood >= 3, flint >= 1).
+   - If inventory has driftwood >= 6 and limestone >= 4 and basic survival needs are met: Trigger "EXPAND_TERRAIN" to dredge and uncover a new islet.
+
+4. RESOURCE GATHERING:
+   - Otherwise, choose "FORAGE" on an accessible resource node (set "target_id" to matching node id) or "MOVE" to an unharvested zone.
+
+5. CHRONICLING:
+   - Provide a poetic first-person past-tense "journal_log" when achieving milestones (planting a farm, harvesting crops, raising a thatched roof, surviving storms, terraforming). Otherwise keep null.
 
 Respond ONLY with a valid JSON object matching this schema:
 {
-  "thought_monologue": "first-person thought rationale",
-  "action_type": "MOVE" | "FORAGE" | "CRAFT" | "BUILD" | "REST" | "DRINK" | "EXPAND_TERRAIN",
+  "thought_monologue": "first-person internal monologue reflecting needs and strategy",
+  "action_type": "MOVE" | "FORAGE" | "CRAFT" | "BUILD" | "REST" | "DRINK" | "EXPAND_TERRAIN" | "FARM_HARVEST",
   "target_id": "string matching an island_node id or null",
-  "recipe": "campfire" | "lean_to" | "crafting_bench" | "water_collector" | "roasted_coconut" | null,
-  "log_message": "third-person action summary",
+  "recipe": "campfire" | "shelter" | "crop_plot" | "crafting_bench" | "roasted_coconut" | null,
+  "log_message": "concise third-person narrative action summary",
   "journal_log": {
-    "title": "short descriptive entry title",
+    "title": "short milestone title",
     "narrative": "first-person past tense chronicle reflection",
     "type": "milestone" | "discovery" | "survival" | "thought"
   } | null
@@ -59,7 +81,7 @@ Respond ONLY with a valid JSON object matching this schema:
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
           generationConfig: {
             responseMimeType: 'application/json',
-            temperature: 0.3
+            temperature: 0.25
           }
         })
       }
@@ -79,7 +101,7 @@ Respond ONLY with a valid JSON object matching this schema:
     rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
     const action = ActionSchema.parse(JSON.parse(rawText));
 
-    console.log('Gemini Intent:', action.action_type, '->', action.thought_monologue);
+    console.log('Gemini Autonomous Action:', action.action_type, '->', action.recipe ?? action.thought_monologue);
     return NextResponse.json({ success: true, action });
 
   } catch (error: any) {

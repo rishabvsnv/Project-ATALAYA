@@ -52,6 +52,12 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
         inventory: state.inventory,
         is_swimming: isSwimming
       },
+      structures: state.structures.map((s) => ({
+        id: s.id,
+        type: s.type,
+        cropStage: s.cropStage,
+        waterLevel: s.waterLevel
+      })),
       plates_discovered: state.plates.map((p) => ({ id: p.id, name: p.name, type: p.type })),
       island_nodes: state.nodes.map((n) => ({
         id: n.id,
@@ -81,6 +87,27 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
 
     const netTempDelta = weatherTempDelta + swimTempDelta;
     const tempRecovery = state.vitals.temperatureC < 36.5 ? 1.5 : 0;
+
+    // Advance farming crops on every tick
+    const isRaining = state.weather === 'Rain' || state.weather === 'Storm';
+
+    const updatedStructures = state.structures.map((s) => {
+      if (s.type !== 'crop_plot') return s;
+
+      let currentWater = s.waterLevel ?? 40;
+      if (isRaining) currentWater = Math.min(100, currentWater + 30);
+      else currentWater = Math.max(0, currentWater - 6);
+
+      let currentStage = s.cropStage ?? 1; // Auto-seed on build
+      // Crops only grow if watered
+      if (currentWater > 15 && currentStage < 3 && tickCountRef.current % 4 === 0) {
+        currentStage += 1;
+      }
+
+      return { ...s, waterLevel: currentWater, cropStage: currentStage };
+    });
+
+    useGameStore.setState({ structures: updatedStructures });
 
     try {
       abortControllerRef.current?.abort();

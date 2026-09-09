@@ -10,7 +10,8 @@ const ringColor: Record<InterventionTool, string> = {
   DROP_SUPPLY: '#fbbf24',
   PLANT_NODE: '#4ade80',
   ORDER_MOVE: '#f43f5e',
-  BUILD_HOUSE: '#a855f7'
+  BUILD_HOUSE: '#a855f7',
+  BUILD_FARM: '#84cc16'
 };
 
 export function InteractiveTerrain() {
@@ -60,6 +61,25 @@ export function InteractiveTerrain() {
           ],
           logs: [
             `[God-Mode] Constructed Thatched Shelter at [${pt[0].toFixed(1)}, ${pt[2].toFixed(1)}]`,
+            ...s.logs.slice(0, 18)
+          ]
+        }));
+        break;
+      case 'BUILD_FARM':
+        useGameStore.setState((s) => ({
+          structures: [
+            ...s.structures,
+            {
+              id: `struct_farm_${Date.now()}`,
+              type: 'crop_plot',
+              position: [pt[0], 0, pt[2]],
+              rotationY: Math.random() * Math.PI * 2,
+              cropStage: 1,
+              waterLevel: 50
+            }
+          ],
+          logs: [
+            `[God-Mode] Established Farm Plot at [${pt[0].toFixed(1)}, ${pt[2].toFixed(1)}]`,
             ...s.logs.slice(0, 18)
           ]
         }));
