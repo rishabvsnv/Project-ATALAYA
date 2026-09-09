@@ -36,6 +36,9 @@ export function SurvivorMesh() {
   const swimTime = useRef(0);
   const actionTime = useRef(0);
 
+  const nodes = useGameStore((s) => s.nodes);
+  const structures = useGameStore((s) => s.structures);
+
   // Set rotation order to YXZ so heading (Y) is evaluated before pitch (X)
   useEffect(() => {
     if (rootRef.current) {
@@ -58,6 +61,15 @@ export function SurvivorMesh() {
     packRoll: '#8c7b69',
     wood: '#6b4423',
     stone: '#606770'
+  };
+
+  const COLLIDERS = {
+    palm: 0.35,
+    limestone: 0.65,
+    obsidian: 0.75,
+    shelter: 1.1,
+    crafting_bench: 0.6,
+    campfire: 0.45
   };
 
   const checkIsOnLand = (x: number, z: number) => {
@@ -330,6 +342,46 @@ export function SurvivorMesh() {
       rth.rotation.set(0.04, 0, 0.04);
       lsh.rotation.set(0.06, 0, 0);
       rsh.rotation.set(0.02, 0, 0);
+    }
+
+    // -------------------------------------------------------------
+    // OBSTACLE COLLISION RESOLUTION (2D Circle Push)
+    // -------------------------------------------------------------
+    const survivorRadius = 0.28;
+
+    // 1. Collide with Natural Resource Nodes
+    for (const node of nodes) {
+      if (node.type === 'water_spring') continue; // Allow walking into water springs
+      const r = (COLLIDERS[node.type as keyof typeof COLLIDERS] ?? 0.4) + survivorRadius;
+      
+      const ox = currentPos.current.x - node.position[0];
+      const oz = currentPos.current.z - node.position[2];
+      const distSq = ox * ox + oz * oz;
+
+      if (distSq < r * r && distSq > 0.0001) {
+        const d = Math.sqrt(distSq);
+        const overlap = r - d;
+        // Push survivor outward along collision normal
+        currentPos.current.x += (ox / d) * overlap;
+        currentPos.current.z += (oz / d) * overlap;
+      }
+    }
+
+    // 2. Collide with Placed Structures
+    for (const struct of structures) {
+      const r = (COLLIDERS[struct.type as keyof typeof COLLIDERS] ?? 0.5) + survivorRadius;
+      
+      const ox = currentPos.current.x - struct.position[0];
+      const oz = currentPos.current.z - struct.position[2];
+      const distSq = ox * ox + oz * oz;
+
+      if (distSq < r * r && distSq > 0.0001) {
+        const d = Math.sqrt(distSq);
+        const overlap = r - d;
+        // Push survivor outward so they slide along walls/fire
+        currentPos.current.x += (ox / d) * overlap;
+        currentPos.current.z += (oz / d) * overlap;
+      }
     }
   });
 
