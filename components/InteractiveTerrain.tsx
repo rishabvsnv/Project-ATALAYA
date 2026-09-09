@@ -11,7 +11,9 @@ const ringColor: Record<InterventionTool, string> = {
   PLANT_NODE: '#4ade80',
   ORDER_MOVE: '#f43f5e',
   BUILD_HOUSE: '#a855f7',
-  BUILD_FARM: '#84cc16'
+  BUILD_FARM: '#84cc16',
+  BUILD_BEACON: '#f59e0b',
+  BUILD_KILN: '#ea580c'
 };
 
 export function InteractiveTerrain() {
@@ -80,6 +82,40 @@ export function InteractiveTerrain() {
           ],
           logs: [
             `[God-Mode] Established Farm Plot at [${pt[0].toFixed(1)}, ${pt[2].toFixed(1)}]`,
+            ...s.logs.slice(0, 18)
+          ]
+        }));
+        break;
+      case 'BUILD_BEACON':
+        useGameStore.setState((s) => ({
+          structures: [
+            ...s.structures,
+            {
+              id: `struct_beacon_${Date.now()}`,
+              type: 'watchtower',
+              position: [pt[0], 0, pt[2]],
+              rotationY: Math.random() * Math.PI * 2
+            }
+          ],
+          logs: [
+            `[God-Mode] Erected Signal Watchtower Beacon at [${pt[0].toFixed(1)}, ${pt[2].toFixed(1)}]`,
+            ...s.logs.slice(0, 18)
+          ]
+        }));
+        break;
+      case 'BUILD_KILN':
+        useGameStore.setState((s) => ({
+          structures: [
+            ...s.structures,
+            {
+              id: `struct_kiln_${Date.now()}`,
+              type: 'smelting_kiln',
+              position: [pt[0], 0, pt[2]],
+              rotationY: Math.random() * Math.PI * 2
+            }
+          ],
+          logs: [
+            `[God-Mode] Built Volcanic Smelting Kiln at [${pt[0].toFixed(1)}, ${pt[2].toFixed(1)}]`,
             ...s.logs.slice(0, 18)
           ]
         }));

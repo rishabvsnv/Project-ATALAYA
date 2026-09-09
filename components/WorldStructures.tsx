@@ -26,6 +26,12 @@ export function WorldStructures() {
             return <CraftingBenchMesh key={struct.id} struct={struct} />;
           case "crop_plot":
             return <CropPlotMesh key={struct.id} struct={struct} />;
+          case 'water_collector':
+            return <WaterCollectorMesh key={struct.id} struct={struct} />;
+          case 'watchtower':
+            return <WatchtowerMesh key={struct.id} struct={struct} />;
+          case 'smelting_kiln':
+            return <SmeltingKilnMesh key={struct.id} struct={struct} />;
           default:
             return null;
         }
@@ -247,6 +253,132 @@ function CropPlotMesh({ struct }: { struct: WorldStructure }) {
           )}
         </group>
       )}
+    </group>
+  );
+}
+
+// 1. Rain Catchment Cistern (Funnel tarp + hollow stone reservoir)
+function WaterCollectorMesh({ struct }: { struct: WorldStructure }) {
+  const fillHeight = Math.max(0.05, ((struct.waterLevel ?? 0) / 100) * 0.45);
+
+  return (
+    <group position={struct.position} rotation={[0, struct.rotationY, 0]}>
+      {/* Stone Basin Base */}
+      <mesh position={[0, 0.25, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.65, 0.72, 0.5, 8]} />
+        <meshLambertMaterial color="#475569" flatShading />
+      </mesh>
+
+      {/* Water Level in Basin */}
+      {(struct.waterLevel ?? 0) > 0 && (
+        <mesh position={[0, 0.05 + fillHeight, 0]}>
+          <cylinderGeometry args={[0.58, 0.58, 0.05, 8]} />
+          <meshLambertMaterial color="#38bdf8" transparent opacity={0.8} />
+        </mesh>
+      )}
+
+      {/* 4 Timber Support Stilts */}
+      {[
+        [-0.45, -0.45],
+        [0.45, -0.45],
+        [-0.45, 0.45],
+        [0.45, 0.45]
+      ].map(([sx, sz], i) => (
+        <mesh key={i} position={[sx, 0.7, sz]} castShadow>
+          <boxGeometry args={[0.08, 0.9, 0.08]} />
+          <meshLambertMaterial color="#543310" flatShading />
+        </mesh>
+      ))}
+
+      {/* Inverted Palm Frond Catchment Funnel */}
+      <mesh position={[0, 1.15, 0]} rotation={[Math.PI, 0, 0]} castShadow>
+        <coneGeometry args={[0.95, 0.45, 6, 1, true]} />
+        <meshLambertMaterial color="#166534" side={THREE.DoubleSide} flatShading />
+      </mesh>
+    </group>
+  );
+}
+
+// 2. High Signal Watchtower (Elevated lookout platform + blazing night beacon)
+function WatchtowerMesh({ struct }: { struct: WorldStructure }) {
+  return (
+    <group position={struct.position} rotation={[0, struct.rotationY, 0]}>
+      {/* 4 Angled Main Pillar Trusses */}
+      {[
+        [-0.6, -0.6, 0.08, 0.08],
+        [0.6, -0.6, -0.08, 0.08],
+        [-0.6, 0.6, 0.08, -0.08],
+        [0.6, 0.6, -0.08, -0.08]
+      ].map(([px, pz, rx, rz], i) => (
+        <mesh key={i} position={[px * 0.7, 1.5, pz * 0.7]} rotation={[rx, 0, rz]} castShadow>
+          <cylinderGeometry args={[0.07, 0.1, 3.1, 5]} />
+          <meshLambertMaterial color="#451a03" flatShading />
+        </mesh>
+      ))}
+
+      {/* Crossbeam Ring Braces */}
+      {[0.9, 1.9, 2.8].map((by, i) => (
+        <mesh key={i} position={[0, by, 0]}>
+          <boxGeometry args={[1.2 - i * 0.15, 0.06, 1.2 - i * 0.15]} />
+          <meshLambertMaterial color="#5c3817" flatShading />
+        </mesh>
+      ))}
+
+      {/* Elevated Lookout Deck */}
+      <mesh position={[0, 3.0, 0]} castShadow receiveShadow>
+        <boxGeometry args={[1.4, 0.1, 1.4]} />
+        <meshLambertMaterial color="#78350f" flatShading />
+      </mesh>
+
+      {/* Guard Rails */}
+      <mesh position={[0, 3.25, 0]}>
+        <boxGeometry args={[1.35, 0.4, 1.35]} />
+        <meshLambertMaterial color="#92400e" wireframe />
+      </mesh>
+
+      {/* Monument Beacon Brazier */}
+      <mesh position={[0, 3.2, 0]} castShadow>
+        <cylinderGeometry args={[0.25, 0.15, 0.3, 6]} />
+        <meshLambertMaterial color="#1e293b" flatShading />
+      </mesh>
+      {/* Eternal Lookout Glow */}
+      <pointLight position={[0, 3.5, 0]} intensity={1.8} color="#f59e0b" distance={8} />
+      <mesh position={[0, 3.35, 0]}>
+        <dodecahedronGeometry args={[0.12, 0]} />
+        <meshBasicMaterial color="#fbbf24" />
+      </mesh>
+    </group>
+  );
+}
+
+// 3. Volcanic Obsidian Smelting Kiln (Thermal chimney with internal magma glow)
+function SmeltingKilnMesh({ struct }: { struct: WorldStructure }) {
+  return (
+    <group position={struct.position} rotation={[0, struct.rotationY, 0]}>
+      {/* Heavy Megalith Base */}
+      <mesh position={[0, 0.35, 0]} castShadow receiveShadow>
+        <boxGeometry args={[1.2, 0.7, 1.1]} />
+        <meshLambertMaterial color="#1e1b4b" flatShading />
+      </mesh>
+
+      {/* Stepped Kiln Chimney */}
+      <mesh position={[0, 0.95, 0]} castShadow>
+        <cylinderGeometry args={[0.26, 0.46, 0.8, 6]} />
+        <meshLambertMaterial color="#0f172a" flatShading />
+      </mesh>
+
+      {/* Smelting Hearth Mouth (Glow Portal) */}
+      <mesh position={[0, 0.28, 0.52]}>
+        <planeGeometry args={[0.42, 0.36]} />
+        <meshBasicMaterial color="#ea580c" />
+      </mesh>
+
+      {/* Magma Embers & Interior Light */}
+      <pointLight position={[0, 0.35, 0.6]} intensity={2.5} color="#f97316" distance={4.5} />
+      <mesh position={[0, 1.38, 0]}>
+        <dodecahedronGeometry args={[0.08, 0]} />
+        <meshBasicMaterial color="#fdba74" />
+      </mesh>
     </group>
   );
 }

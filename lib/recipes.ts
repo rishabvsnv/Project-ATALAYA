@@ -1,4 +1,4 @@
-import { EquippedToolType } from "./store";
+import { EquippedToolType, StructureType } from "./store";
 
 export interface Recipe {
   id: string;
@@ -6,7 +6,7 @@ export interface Recipe {
   category: 'tool' | 'structure' | 'consumable';
   inputs: Record<string, number>;
   vitalImpact?: { health?: number; hunger?: number; energy?: number };
-  structureMeshType?: 'campfire' | 'shelter' | 'crafting_bench' | 'water_collector' | 'crop_plot';
+  structureMeshType?: StructureType;
   grantsTool?: EquippedToolType;
 }
 
@@ -91,6 +91,30 @@ export const RECIPE_REGISTRY: Record<string, Recipe> = {
     grantsTool: 'fishing_spear',
     inputs: { driftwood: 3, flint: 1 },
     vitalImpact: { energy: -6 }
+  },
+  water_collector: {
+    id: 'water_collector',
+    name: 'Rain Catchment Cistern',
+    category: 'structure',
+    structureMeshType: 'water_collector',
+    inputs: { driftwood: 4, palm_frond: 6, limestone: 2 },
+    vitalImpact: { energy: -12 }
+  },
+  watchtower: {
+    id: 'watchtower',
+    name: 'High Signal Watchtower',
+    category: 'structure',
+    structureMeshType: 'watchtower',
+    inputs: { driftwood: 8, palm_frond: 4, limestone: 4 },
+    vitalImpact: { energy: -20, health: 5 }
+  },
+  smelting_kiln: {
+    id: 'smelting_kiln',
+    name: 'Volcanic Obsidian Kiln',
+    category: 'structure',
+    structureMeshType: 'smelting_kiln',
+    inputs: { obsidian: 4, limestone: 6, flint: 2 },
+    vitalImpact: { energy: -18 }
   }
 };
 

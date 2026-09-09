@@ -18,7 +18,9 @@ export type InterventionTool =
   | "DROP_SUPPLY"
   | "PLANT_NODE"
   | "BUILD_HOUSE"
-  | "BUILD_FARM";
+  | "BUILD_FARM"
+  | 'BUILD_BEACON'
+  | 'BUILD_KILN';
 
 export type EquippedToolType =
   | "flint_hatchet"
@@ -36,21 +38,25 @@ export interface JournalEntry {
   type: "milestone" | "discovery" | "survival" | "thought";
 }
 
+export type StructureType =
+  | 'campfire'
+  | 'shelter'
+  | 'crafting_bench'
+  | 'water_collector'
+  | 'bridge'
+  | 'crop_plot'
+  | 'watchtower'
+  | 'smelting_kiln';
+
 export interface WorldStructure {
   id: string;
-  type:
-    | "campfire"
-    | "shelter"
-    | "crafting_bench"
-    | "water_collector"
-    | "bridge"
-    | "crop_plot";
+  type: StructureType;
   position: [number, number, number];
   rotationY: number;
   cropStage?: number;
   waterLevel?: number;
+  isLit?: boolean;
 }
-
 export interface IslandPlate {
   id: string;
   name: string;
@@ -217,7 +223,7 @@ export const useGameStore = create<GameState>()(
         set((s) => ({
           wildlife: s.wildlife.filter((w) => w.id !== id),
         })),
-        
+
       survivorPosition: [0, 0, 0],
       targetPosition: null,
       survivorState: "IDLE",

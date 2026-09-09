@@ -15,7 +15,19 @@ const ActionSchema = z.object({
     'HUNT'
   ]).default('FORAGE'),
   target_id: z.string().nullable().default(null),
-  recipe: z.string().nullable().default(null),
+  recipe: z.enum([
+    'campfire',
+    'shelter',
+    'crop_plot',
+    'crafting_bench',
+    'roasted_coconut',
+    'flint_hatchet',
+    'stone_pickaxe',
+    'fishing_spear',
+    'water_collector',
+    'watchtower',
+    'smelting_kiln'
+  ]).nullable().default(null),
   log_message: z.string().default('Survivor takes action.'),
   journal_log: z.object({
     title: z.string(),
@@ -68,6 +80,16 @@ SURVIVAL STRATEGY & EVOLUTION:
   - If hunger < 50 and wildlife_nearby contains entities:
     - Target crab on shorelines or fish in shallows using action_type "HUNT" with "target_id".
     - If fishing_spear is equipped, hunting succeeds efficiently.
+
+TECHNOLOGY & MONUMENT PROGRESSION:
+1. INFRASTRUCTURE:
+   - "water_collector" (4 driftwood, 6 palm_frond, 2 limestone): Catches rainwater automatically. Highly recommended so you never die of dehydration away from the well.
+   
+2. SETTLEMENT MONUMENTS:
+   - "watchtower" (8 driftwood, 4 palm_frond, 4 limestone): High signal station with an eternal beacon. Prioritize this once basic shelter and crops exist.
+   - "smelting_kiln" (4 obsidian, 6 limestone, 2 flint): Advanced high-temperature furnace built with mined obsidian. Represents peak engineering.
+
+Prioritize building these enduring monuments when your survival needs (hunger > 50, hydration > 50, energy > 40) are secure and ingredients are collected.
 
 Respond ONLY with a valid JSON object matching this schema:
 {

@@ -97,6 +97,36 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
     // Advance farming crops on every tick
     const isRaining = state.weather === 'Rain' || state.weather === 'Storm';
 
+    const processedStructures = state.structures.map((struct) => {
+      // Update Crop Beds
+      if (struct.type === 'crop_plot') {
+        let currentWater = struct.waterLevel ?? 40;
+        if (isRaining) currentWater = Math.min(100, currentWater + 30);
+        else currentWater = Math.max(0, currentWater - 6);
+
+        let currentStage = struct.cropStage ?? 1;
+        if (currentWater > 15 && currentStage < 3 && tickCountRef.current % 4 === 0) {
+          currentStage += 1;
+        }
+        return { ...struct, waterLevel: currentWater, cropStage: currentStage };
+      }
+
+      // Update Rain Cistern
+      if (struct.type === 'water_collector') {
+        let level = struct.waterLevel ?? 0;
+        if (isRaining) {
+          level = Math.min(100, level + 35); // Rapid catchment
+        } else {
+          level = Math.max(0, level - 2);    // Minimal sealed evaporation
+        }
+        return { ...struct, waterLevel: level };
+      }
+
+      return struct;
+    });
+
+    useGameStore.setState({ structures: processedStructures });
+
     const updatedStructures = state.structures.map((s) => {
       if (s.type !== 'crop_plot') return s;
 
@@ -338,6 +368,34 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
               health: 0
             },
             { [dropItem]: currentCount + amount }
+          );
+          return;
+        }
+      }
+
+      if (action.action_type === 'DRINK') {
+        const cistern = state.structures.find(
+          (s) => s.type === 'water_collector' && (s.waterLevel ?? 0) >= 20
+        );
+
+        if (cistern) {
+          state.setTargetPosition(cistern.position);
+          // Draw water from the cistern
+          useGameStore.setState((s) => ({
+            structures: s.structures.map((st) =>
+              st.id === cistern.id ? { ...st, waterLevel: Math.max(0, (st.waterLevel ?? 20) - 25) } : st
+            )
+          }));
+
+          state.applyActionOutcome(
+            action.thought_monologue,
+            'Drank cool filtered rainwater stored in the catchment cistern.',
+            {
+              hydration: 55,
+              energy: 6,
+              hunger: -1,
+              temperatureC: 0
+            }
           );
           return;
         }
