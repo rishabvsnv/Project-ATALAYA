@@ -43,27 +43,32 @@ SURVIVAL STRATEGY & EVOLUTION:
    - If energy < 25: Prioritize action_type "REST" (resting near or in a shelter yields maximum recovery).
    - If weather is "Rain" or "Storm" and no "shelter" exists nearby, prioritize building one immediately.
 
-2. AGRICULTURE & LONG-TERM SUSTENANCE:
-   - If any "crop_plot" structure in the world has cropStage >= 3, your highest priority is "FARM_HARVEST" (target_id null or plot id) to establish food security.
-   - If no "crop_plot" exists and inventory has driftwood >= 3 and palm_frond >= 3: Choose action_type "BUILD" with recipe "crop_plot" to start a sustainable farm.
+2. TOOL HIERARCHY & PROGRESSION:
+   - If equipped_tool is null and inventory has driftwood >= 2, flint >= 2: Prioritize CRAFTing "flint_hatchet" to gain 2.5x palm yields and cut energy depletion!
+   - If obsidian ore is discovered and equipped_tool is not "stone_pickaxe" and inventory has driftwood >= 3, limestone >= 3: CRAFT "stone_pickaxe".
+   - If equipped_tool is null, foraging nodes is penalized with 50% yields and high exhaustion.
 
-3. ARCHITECTURE & EXPANSION:
+3. AGRICULTURE & LONG-TERM SUSTENANCE:
+   - If any "crop_plot" structure in the world has cropStage >= 3, your highest priority is "FARM_HARVEST" (target_id null or plot id) to establish food security.
+   - If no "crop_plot" exists and inventory has driftwood >= 3 and palm_frond >= 3: Choose action_type "BUILD" with recipe "crop_plot".
+
+4. ARCHITECTURE & EXPANSION:
    - If no "shelter" exists and inventory has driftwood >= 5, palm_frond >= 4, limestone >= 2: Choose action_type "BUILD" with recipe "shelter".
    - If night/dusk falls and cold threatens, BUILD "campfire" (needs driftwood >= 3, flint >= 1).
-   - If inventory has driftwood >= 6 and limestone >= 4 and basic survival needs are met: Trigger "EXPAND_TERRAIN" to dredge and uncover a new islet.
+   - If inventory has driftwood >= 6 and limestone >= 4 and basic survival needs are met: Trigger "EXPAND_TERRAIN" to uncover a new islet.
 
-4. RESOURCE GATHERING:
+5. RESOURCE GATHERING:
    - Otherwise, choose "FORAGE" on an accessible resource node (set "target_id" to matching node id) or "MOVE" to an unharvested zone.
 
-5. CHRONICLING:
-   - Provide a poetic first-person past-tense "journal_log" when achieving milestones (planting a farm, harvesting crops, raising a thatched roof, surviving storms, terraforming). Otherwise keep null.
+6. CHRONICLING:
+   - Provide a poetic first-person past-tense "journal_log" when achieving milestones (forging a new tool, planting crops, harvesting food, building a shelter, terraforming). Otherwise keep null.
 
 Respond ONLY with a valid JSON object matching this schema:
 {
   "thought_monologue": "first-person internal monologue reflecting needs and strategy",
   "action_type": "MOVE" | "FORAGE" | "CRAFT" | "BUILD" | "REST" | "DRINK" | "EXPAND_TERRAIN" | "FARM_HARVEST",
   "target_id": "string matching an island_node id or null",
-  "recipe": "campfire" | "shelter" | "crop_plot" | "crafting_bench" | "roasted_coconut" | null,
+  "recipe": "flint_hatchet" | "stone_pickaxe" | "fishing_spear" | "campfire" | "shelter" | "crop_plot" | "crafting_bench" | "roasted_coconut" | null,
   "log_message": "concise third-person narrative action summary",
   "journal_log": {
     "title": "short milestone title",
@@ -101,7 +106,7 @@ Respond ONLY with a valid JSON object matching this schema:
     rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
     const action = ActionSchema.parse(JSON.parse(rawText));
 
-    console.log('Gemini Autonomous Action:', action.action_type, '->', action.recipe ?? action.thought_monologue);
+    console.log('Gemini Action:', action.action_type, '->', action.recipe ?? action.thought_monologue);
     return NextResponse.json({ success: true, action });
 
   } catch (error: any) {

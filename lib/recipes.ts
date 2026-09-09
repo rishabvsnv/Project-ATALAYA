@@ -1,3 +1,5 @@
+import { EquippedToolType } from "./store";
+
 export interface Recipe {
   id: string;
   name: string;
@@ -5,6 +7,7 @@ export interface Recipe {
   inputs: Record<string, number>;
   vitalImpact?: { health?: number; hunger?: number; energy?: number };
   structureMeshType?: 'campfire' | 'shelter' | 'crafting_bench' | 'water_collector' | 'crop_plot';
+  grantsTool?: EquippedToolType;
 }
 
 export const RECIPE_REGISTRY: Record<string, Recipe> = {
@@ -64,6 +67,30 @@ export const RECIPE_REGISTRY: Record<string, Recipe> = {
       energy: -10,
       health: 0
     }
+  },
+  flint_hatchet: {
+    id: 'flint_hatchet',
+    name: 'Flint Hatchet',
+    category: 'tool',
+    grantsTool: 'flint_hatchet',
+    inputs: { driftwood: 2, flint: 2 },
+    vitalImpact: { energy: -8 }
+  },
+  stone_pickaxe: {
+    id: 'stone_pickaxe',
+    name: 'Limestone Pickaxe',
+    category: 'tool',
+    grantsTool: 'stone_pickaxe',
+    inputs: { driftwood: 3, limestone: 3 },
+    vitalImpact: { energy: -10 }
+  },
+  fishing_spear: {
+    id: 'fishing_spear',
+    name: 'Hardened Fishing Spear',
+    category: 'tool',
+    grantsTool: 'fishing_spear',
+    inputs: { driftwood: 3, flint: 1 },
+    vitalImpact: { energy: -6 }
   }
 };
 

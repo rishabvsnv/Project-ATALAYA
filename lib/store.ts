@@ -14,11 +14,17 @@ export type SurvivorAnimState =
   | "SWIM";
 export type InterventionTool =
   | "INSPECT"
-  | 'ORDER_MOVE'
+  | "ORDER_MOVE"
   | "DROP_SUPPLY"
   | "PLANT_NODE"
   | "BUILD_HOUSE"
-  | 'BUILD_FARM';
+  | "BUILD_FARM";
+
+export type EquippedToolType =
+  | "flint_hatchet"
+  | "stone_pickaxe"
+  | "fishing_spear"
+  | null;
 
 export interface JournalEntry {
   id: string;
@@ -82,7 +88,8 @@ export interface GameState {
 
   vitals: Vitals;
   inventory: Record<string, number>;
-  equippedTool: string | null;
+  equippedTool: EquippedToolType;
+  equipTool: (tool: EquippedToolType) => void;
   survivorPosition: [number, number, number];
   targetPosition: [number, number, number] | null;
   survivorState: SurvivorAnimState;
@@ -98,7 +105,7 @@ export interface GameState {
   spawnSupplyCrate: (pos: [number, number, number]) => void;
   plantCustomNode: (
     pos: [number, number, number],
-    type: "palm" | "limestone",
+    type: "palm" | "limestone"
   ) => void;
 
   setPaused: (paused: boolean) => void;
@@ -115,7 +122,7 @@ export interface GameState {
     thought: string,
     log: string,
     deltaVitals: Partial<Vitals>,
-    inventoryUpdate?: Record<string, number>,
+    inventoryUpdate?: Record<string, number>
   ) => void;
   executeCraftOrBuild: (recipeKey: string) => boolean;
   expandNewArea: (targetDirection: string) => boolean;
@@ -184,6 +191,7 @@ export const useGameStore = create<GameState>()(
       },
       inventory: { driftwood: 8, flint: 4, palm_frond: 6, limestone: 5 },
       equippedTool: null,
+      equipTool: (equippedTool) => set({ equippedTool }),
       survivorPosition: [0, 0, 0],
       targetPosition: null,
       survivorState: "IDLE",
@@ -241,20 +249,17 @@ export const useGameStore = create<GameState>()(
         })),
 
       resetWorld: () => {
-        // 1. Tell Zustand persist to clear its managed storage key safely
         useGameStore.persist.clearStorage();
 
-        // 2. Also remove directly from localStorage
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('atalaya_island_save');
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("atalaya_island_save");
         }
 
-        // 3. Reset in-memory state so nothing flushes on beforeunload
         set({
           day: 1,
-          timeOfDay: 'Day',
+          timeOfDay: "Day",
           timeProgress: 0.25,
-          weather: 'Clear',
+          weather: "Clear",
           isPaused: false,
           simSpeed: 1,
           stepTrigger: 0,
@@ -270,16 +275,16 @@ export const useGameStore = create<GameState>()(
           equippedTool: null,
           survivorPosition: [0, 0, 0],
           targetPosition: null,
-          survivorState: 'IDLE',
+          survivorState: "IDLE",
           plates: INITIAL_PLATES,
           nodes: INITIAL_NODES,
           structures: [],
-          latestThought: 'The island is fertile, but resources are finite. I should survey expansion points.',
-          logs: ['Spawned on Origin Atoll.'],
-          journal: INITIAL_JOURNAL
+          latestThought:
+            "The island is fertile, but resources are finite. I should survey expansion points.",
+          logs: ["Spawned on Origin Atoll."],
+          journal: INITIAL_JOURNAL,
         });
 
-        // 4. Force a hard reload
         window.location.href = window.location.pathname;
       },
 
@@ -297,7 +302,8 @@ export const useGameStore = create<GameState>()(
 
       setTimeProgress: (progress, phase) =>
         set((state) => {
-          const nextDay = progress < state.timeProgress ? state.day + 1 : state.day;
+          const nextDay =
+            progress < state.timeProgress ? state.day + 1 : state.day;
           return { timeProgress: progress, timeOfDay: phase, day: nextDay };
         }),
 
@@ -308,22 +314,27 @@ export const useGameStore = create<GameState>()(
           vitals: {
             health: Math.max(
               0,
-              Math.min(100, state.vitals.health + (deltaVitals.health ?? -1)),
+              Math.min(100, state.vitals.health + (deltaVitals.health ?? -1))
             ),
             hunger: Math.max(
               0,
-              Math.min(100, state.vitals.hunger + (deltaVitals.hunger ?? -2)),
+              Math.min(100, state.vitals.hunger + (deltaVitals.hunger ?? -2))
             ),
             energy: Math.max(
               0,
-              Math.min(100, state.vitals.energy + (deltaVitals.energy ?? -1)),
+              Math.min(100, state.vitals.energy + (deltaVitals.energy ?? -1))
             ),
             hydration: Math.max(
               0,
-              Math.min(100, state.vitals.hydration + (deltaVitals.hydration ?? -3)),
+              Math.min(100, state.vitals.hydration + (deltaVitals.hydration ?? -3))
             ),
-            temperatureC:
-              state.vitals.temperatureC + (deltaVitals.temperatureC ?? 0),
+            temperatureC: Math.max(
+              15,
+              Math.min(
+                42,
+                state.vitals.temperatureC + (deltaVitals.temperatureC ?? 0)
+              )
+            ),
           },
           inventory: inventoryUpdate ?? state.inventory,
         })),
@@ -434,21 +445,30 @@ export const useGameStore = create<GameState>()(
           return true;
         }
 
+        if (recipe.category === "tool" && recipe.grantsTool) {
+          set((s) => ({
+            inventory: consumedInventory,
+            equippedTool: recipe.grantsTool,
+            logs: [`Crafted and equipped ${recipe.name}!`, ...s.logs.slice(0, 19)],
+          }));
+          return true;
+        }
+
         set((s) => ({
           inventory: consumedInventory,
           vitals: {
             ...s.vitals,
             health: Math.min(
               100,
-              s.vitals.health + (recipe.vitalImpact?.health ?? 0),
+              s.vitals.health + (recipe.vitalImpact?.health ?? 0)
             ),
             hunger: Math.min(
               100,
-              s.vitals.hunger + (recipe.vitalImpact?.hunger ?? 0),
+              s.vitals.hunger + (recipe.vitalImpact?.hunger ?? 0)
             ),
             energy: Math.min(
               100,
-              s.vitals.energy + (recipe.vitalImpact?.energy ?? 0),
+              s.vitals.energy + (recipe.vitalImpact?.energy ?? 0)
             ),
           },
           logs: [`Crafted ${recipe.name}.`, ...s.logs.slice(0, 19)],
@@ -465,6 +485,7 @@ export const useGameStore = create<GameState>()(
         timeProgress: state.timeProgress,
         vitals: state.vitals,
         inventory: state.inventory,
+        equippedTool: state.equippedTool, // Preserves equipped tool across page reloads
         survivorPosition: state.survivorPosition,
         plates: state.plates,
         nodes: state.nodes,
@@ -472,6 +493,6 @@ export const useGameStore = create<GameState>()(
         journal: state.journal,
         logs: state.logs,
       }),
-    },
-  ),
+    }
+  )
 );

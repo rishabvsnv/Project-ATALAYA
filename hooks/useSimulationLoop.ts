@@ -50,6 +50,7 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
         position: state.survivorPosition,
         vitals: state.vitals,
         inventory: state.inventory,
+        equipped_tool: state.equippedTool,
         is_swimming: isSwimming
       },
       structures: state.structures.map((s) => ({
@@ -229,25 +230,57 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
         return;
       }
 
-      // 6. Harvesting
+      // 6. Harvesting with Tool Multipliers
       if (action.action_type === 'FORAGE') {
         const targetNode = state.nodes.find((n) => n.id === action.target_id);
         if (targetNode) {
+          // Hardness gating: Obsidian requires Stone Pickaxe
+          if (targetNode.type === 'obsidian' && state.equippedTool !== 'stone_pickaxe') {
+            state.applyActionOutcome(
+              action.thought_monologue,
+              'Cannot mine volcanic obsidian with bare hands or hatchet! Requires a Stone Pickaxe.',
+              { energy: -2, hunger: -1 }
+            );
+            return;
+          }
+
           state.setTargetPosition(targetNode.position);
           audioManager?.playChopSound();
-          const drop = NODE_HARVEST_TABLE[targetNode.type] ?? { item: 'driftwood', amount: 1 };
-          const currentCount = state.inventory[drop.item] ?? 0;
+
+          const baseDrop = NODE_HARVEST_TABLE[targetNode.type] ?? { item: 'driftwood', amount: 1 };
+
+          // Tool Tier Yield Multipliers
+          let multiplier = 1;
+          let energyCost = -5;
+
+          if (targetNode.type === 'palm' && state.equippedTool === 'flint_hatchet') {
+            multiplier = 2.5; // Yields 5 wood
+            energyCost = -3;
+          } else if (targetNode.type === 'limestone' && state.equippedTool === 'stone_pickaxe') {
+            multiplier = 2.0; // Yields 4 limestone
+            energyCost = -3;
+          } else if (targetNode.type === 'obsidian' && state.equippedTool === 'stone_pickaxe') {
+            multiplier = 1.5; // Yields 3 flint/ore
+            energyCost = -6;
+          } else if (state.equippedTool === null) {
+            multiplier = 0.5; // Bare-hands penalty: 1 drop
+            energyCost = -8;
+          }
+
+          const finalAmount = Math.max(1, Math.round(baseDrop.amount * multiplier));
+          const currentCount = state.inventory[baseDrop.item] ?? 0;
+
           state.applyActionOutcome(
             action.thought_monologue,
-            action.log_message,
+            `${action.log_message} (+${finalAmount} ${baseDrop.item})`,
             {
               hunger: -3,
-              energy: -5 + swimEnergyDelta,
+              energy: energyCost + swimEnergyDelta,
               hydration: -5 + weatherHydrationDelta,
               temperatureC: netTempDelta,
               health: 0
             },
-            { [drop.item]: currentCount + drop.amount }
+            { [baseDrop.item]: currentCount + finalAmount }
           );
           return;
         }

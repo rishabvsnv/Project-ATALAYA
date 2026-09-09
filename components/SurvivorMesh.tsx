@@ -39,6 +39,8 @@ export function SurvivorMesh() {
   const nodes = useGameStore((s) => s.nodes);
   const structures = useGameStore((s) => s.structures);
 
+  const equippedTool = useGameStore((s) => s.equippedTool);
+
   // Set rotation order to YXZ so heading (Y) is evaluated before pitch (X)
   useEffect(() => {
     if (rootRef.current) {
@@ -565,6 +567,57 @@ export function SurvivorMesh() {
             </mesh>
           </group>
         </group>
+      </group>
+      {/* Dynamic Tool Mount */}
+      <group ref={toolRef} position={[0.02, -0.22, 0.08]} rotation={[0.4, 0, 0]}>
+        {equippedTool === 'stone_pickaxe' ? (
+          // Pickaxe Geometry
+          <group>
+            {/* Shaft */}
+            <mesh castShadow position={[0, 0.12, 0]}>
+              <cylinderGeometry args={[0.02, 0.025, 0.55, 6]} />
+              <meshLambertMaterial color={palette.wood} flatShading />
+            </mesh>
+            {/* Pick Head Arch */}
+            <mesh castShadow position={[0, 0.36, 0]} rotation={[0, 0, Math.PI / 2]}>
+              <cylinderGeometry args={[0.04, 0.04, 0.38, 5]} />
+              <meshLambertMaterial color={palette.stone} flatShading />
+            </mesh>
+            {/* Pick Point */}
+            <mesh castShadow position={[0.22, 0.36, 0]} rotation={[0, 0, -Math.PI / 2]}>
+              <coneGeometry args={[0.04, 0.12, 4]} />
+              <meshLambertMaterial color="#334155" flatShading />
+            </mesh>
+          </group>
+        ) : equippedTool === 'fishing_spear' ? (
+          // Spear Geometry
+          <group>
+            {/* Long Shaft */}
+            <mesh castShadow position={[0, 0.28, 0]}>
+              <cylinderGeometry args={[0.018, 0.02, 0.9, 6]} />
+              <meshLambertMaterial color={palette.wood} flatShading />
+            </mesh>
+            {/* Spear Tip */}
+            <mesh castShadow position={[0, 0.74, 0]}>
+              <coneGeometry args={[0.045, 0.22, 4]} />
+              <meshLambertMaterial color="#0f172a" flatShading />
+            </mesh>
+          </group>
+        ) : (
+          // Flint Hatchet Geometry (Default / Basic)
+          <group>
+            {/* Handle */}
+            <mesh castShadow position={[0, 0.08, 0]}>
+              <cylinderGeometry args={[0.02, 0.025, 0.5, 6]} />
+              <meshLambertMaterial color={palette.wood} flatShading />
+            </mesh>
+            {/* Axe Blade */}
+            <mesh castShadow position={[0, 0.28, 0.05]} rotation={[0, 0, Math.PI / 2]}>
+              <coneGeometry args={[0.08, 0.16, 4]} />
+              <meshLambertMaterial color={palette.stone} flatShading />
+            </mesh>
+          </group>
+        )}
       </group>
     </group>
   );
