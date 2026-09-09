@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { useGameStore, SimulationSpeed, InterventionTool } from '@/lib/store';
 import { audioManager } from '@/lib/audioManager';
+import { BookOpen } from 'lucide-react';
 
 export function BentoHUD() {
   const vitals = useGameStore((s) => s.vitals);
@@ -72,6 +73,9 @@ export function BentoHUD() {
     const nextMuted = audioManager.toggleMute();
     setIsMuted(nextMuted);
   };
+
+  const isJournalOpen = useGameStore((s) => s.isJournalOpen);
+  const setJournalOpen = useGameStore((s) => s.setJournalOpen);
 
   return (
     <aside aria-label="HUD Overlay" className="pointer-events-none fixed inset-0 z-20 flex flex-col justify-between p-4 sm:p-5 select-none font-sans">
@@ -193,6 +197,14 @@ export function BentoHUD() {
               title={isMuted ? 'Unmute Procedural Audio' : 'Mute Audio'}
             >
               {isMuted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+            </button>
+
+            <button
+              onClick={() => setJournalOpen(!isJournalOpen)}
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-white/5 text-neutral-400 hover:bg-white/10 hover:text-amber-300 transition-all"
+              title="Open Chronicles"
+            >
+              <BookOpen className="h-3.5 w-3.5" />
             </button>
 
             {/* God-Mode Tools */}

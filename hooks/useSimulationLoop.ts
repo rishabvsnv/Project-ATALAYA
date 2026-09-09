@@ -90,7 +90,19 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
 
       if (!action || !isRunningRef.current) return;
 
-      // Map action intent to procedural kinesthetic poses
+      // 1. CAPTURE JOURNAL ENTRY FIRST (so it never gets skipped by early returns)
+      if (action.journal_log) {
+        state.addJournalEntry({
+          day: state.day,
+          timeOfDay: state.timeOfDay,
+          weather: state.weather,
+          title: action.journal_log.title,
+          entry: action.journal_log.narrative,
+          type: action.journal_log.type
+        });
+      }
+
+      // 2. Map kinesthetic poses
       if (action.action_type === 'REST') {
         state.setSurvivorState('SLEEP');
       } else if (['FORAGE', 'BUILD', 'CRAFT', 'EXPAND_TERRAIN'].includes(action.action_type)) {
@@ -101,7 +113,7 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
         state.setSurvivorState('IDLE');
       }
 
-      // Handle Terraforming
+      // 3. Terraforming
       if (action.action_type === 'EXPAND_TERRAIN') {
         const success = state.expandNewArea('adjacent');
         if (success) {
@@ -131,7 +143,7 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
         return;
       }
 
-      // Handle Drinking
+      // 4. Drinking
       if (action.action_type === 'DRINK') {
         state.applyActionOutcome(
           action.thought_monologue,
@@ -146,7 +158,7 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
         return;
       }
 
-      // Handle Crafting / Building
+      // 5. Crafting & Building
       if (action.action_type === 'CRAFT' || action.action_type === 'BUILD') {
         if (action.recipe) {
           const success = state.executeCraftOrBuild(action.recipe);
@@ -179,11 +191,12 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
         return;
       }
 
-      // Handle Harvesting
+      // 6. Harvesting
       if (action.action_type === 'FORAGE') {
         const targetNode = state.nodes.find((n) => n.id === action.target_id);
         if (targetNode) {
           state.setTargetPosition(targetNode.position);
+          audioManager?.playChopSound();
           const drop = NODE_HARVEST_TABLE[targetNode.type] ?? { item: 'driftwood', amount: 1 };
           const currentCount = state.inventory[drop.item] ?? 0;
           state.applyActionOutcome(
@@ -200,10 +213,9 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
           );
           return;
         }
-        audioManager?.playChopSound();
       }
 
-      // Handle Locomotion
+      // 7. Locomotion
       if (action.action_type === 'MOVE') {
         const targetNode = state.nodes.find((n) => n.id === action.target_id);
         if (targetNode) {
@@ -223,7 +235,7 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
         return;
       }
 
-      // Fallback Rest
+      // 8. Resting Fallback
       state.applyActionOutcome(
         action.thought_monologue,
         action.log_message,

@@ -6,7 +6,12 @@ const ActionSchema = z.object({
   action_type: z.enum(['MOVE', 'FORAGE', 'CRAFT', 'BUILD', 'REST', 'DRINK', 'EXPAND_TERRAIN']).default('FORAGE'),
   target_id: z.string().nullable().default(null),
   recipe: z.string().nullable().default(null),
-  log_message: z.string().default('Survivor takes action.')
+  log_message: z.string().default('Survivor takes action.'),
+  journal_log: z.object({
+    title: z.string(),
+    narrative: z.string(),
+    type: z.enum(['milestone', 'discovery', 'survival', 'thought'])
+  }).nullable().default(null)
 });
 
 export async function POST(req: Request) {
@@ -29,6 +34,7 @@ SURVIVAL STRATEGY:
 - If inventory has driftwood >= 6 and limestone >= 4: You can trigger "EXPAND_TERRAIN" to dredge and discover a new islet with new resources.
 - If ingredients are sufficient, craft structures ("campfire", "lean_to", "crafting_bench", "water_collector").
 - Otherwise: "FORAGE" accessible nodes or "MOVE" across plates.
+- JOURNALING: If this action represents a meaningful milestone (e.g., expanding an islet, building a structure, surviving a severe storm, or discovering new resources), provide a poetic, authentic "journal_log" entry written in first-person past tense. Otherwise keep "journal_log" null.
 
 Respond ONLY with a valid JSON object matching this schema:
 {
@@ -36,7 +42,12 @@ Respond ONLY with a valid JSON object matching this schema:
   "action_type": "MOVE" | "FORAGE" | "CRAFT" | "BUILD" | "REST" | "DRINK" | "EXPAND_TERRAIN",
   "target_id": "string matching an island_node id or null",
   "recipe": "campfire" | "lean_to" | "crafting_bench" | "water_collector" | "roasted_coconut" | null,
-  "log_message": "third-person action summary"
+  "log_message": "third-person action summary",
+  "journal_log": {
+    "title": "short descriptive entry title",
+    "narrative": "first-person past tense chronicle reflection",
+    "type": "milestone" | "discovery" | "survival" | "thought"
+  } | null
 }`;
 
     const response = await fetch(
@@ -81,7 +92,8 @@ Respond ONLY with a valid JSON object matching this schema:
         action_type: 'REST',
         target_id: null,
         recipe: null,
-        log_message: 'The survivor rests to regain composure.'
+        log_message: 'The survivor rests to regain composure.',
+        journal_log: null
       }
     });
   }
