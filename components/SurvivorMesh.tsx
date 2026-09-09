@@ -187,7 +187,7 @@ export function SurvivorMesh() {
 
       if (pack) pack.rotation.x = 0;
     }
-    
+
     // -------------------------------------------------------------
     // WALKING KINEMATICS
     // -------------------------------------------------------------
@@ -262,30 +262,38 @@ export function SurvivorMesh() {
       rsh.rotation.set(0.25, 0, 0);
     }
     // -------------------------------------------------------------
-    // SLEEPING KINEMATICS
+    // SLEEPING KINEMATICS (Flat ground rest)
     // -------------------------------------------------------------
     else if (effectiveState === 'SLEEP') {
-      root.position.y = currentPos.current.y + 0.16;
-      root.rotation.x = -Math.PI / 2;
-      root.rotation.z = -0.3;
+      // Keep root flat on the ground plane
+      root.position.y = 0.12;
+      root.rotation.x = -Math.PI / 2; // Flat on back/ground
+      root.rotation.z = 0;
 
-      const breathe = Math.sin(t * 1.5) * 0.03;
-      chest.scale.set(1 + breathe, 1 + breathe, 1 + breathe);
+      const breathe = Math.sin(t * 1.8) * 0.03;
+      chest.scale.set(1 + breathe, 1 + breathe, 1);
 
+      // Relax spine and head flat on ground
       hips.position.y = 0.46;
       hips.rotation.set(0, 0, 0);
       chest.rotation.set(0, 0, 0);
+      head.rotation.set(-0.1, Math.sin(t * 0.4) * 0.15, 0);
 
-      lua.rotation.set(0.3, 0, -0.6);
-      rua.rotation.set(0.4, 0, 0.5);
-      lfa.rotation.set(0.4, 0, 0);
-      rfa.rotation.set(0.5, 0, 0);
+      // Arms resting across abdomen / ground
+      lua.rotation.set(0.1, 0, -0.4);
+      rua.rotation.set(0.1, 0, 0.4);
+      lfa.rotation.set(0.8, 0, 0);
+      rfa.rotation.set(0.8, 0, 0);
 
-      lth.rotation.set(0.4, 0, -0.1);
-      rth.rotation.set(0.2, 0, 0.1);
-      lsh.rotation.set(0.6, 0, 0);
-      rsh.rotation.set(0.4, 0, 0);
+      // Legs laid out flat
+      lth.rotation.set(-0.05, 0, -0.1);
+      rth.rotation.set(-0.05, 0, 0.1);
+      lsh.rotation.set(0.1, 0, 0);
+      rsh.rotation.set(0.1, 0, 0);
+
+      if (pack) pack.rotation.x = 0;
     }
+    
     // -------------------------------------------------------------
     // IDLE KINEMATICS
     // -------------------------------------------------------------

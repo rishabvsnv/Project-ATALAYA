@@ -80,6 +80,7 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
     }
 
     const netTempDelta = weatherTempDelta + swimTempDelta;
+    const tempRecovery = state.vitals.temperatureC < 36.5 ? 1.5 : 0;
 
     try {
       abortControllerRef.current?.abort();
@@ -253,7 +254,7 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
           hunger: -1,
           energy: isSwimming ? -8 : 16,
           hydration: -2 + weatherHydrationDelta,
-          temperatureC: netTempDelta,
+          temperatureC: netTempDelta + tempRecovery,
           health: isSwimming && state.vitals.temperatureC < 33 ? -6 : 2
         }
       );
