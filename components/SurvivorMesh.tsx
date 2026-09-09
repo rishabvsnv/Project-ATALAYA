@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useGameStore, SurvivorAnimState } from '@/lib/store';
@@ -36,6 +36,13 @@ export function SurvivorMesh() {
   const swimTime = useRef(0);
   const actionTime = useRef(0);
 
+  // Set rotation order to YXZ so heading (Y) is evaluated before pitch (X)
+  useEffect(() => {
+    if (rootRef.current) {
+      rootRef.current.rotation.order = 'YXZ';
+    }
+  }, []);
+
   const palette = {
     skin: '#c68662',
     skinShadow: '#b06f4c',
@@ -70,27 +77,31 @@ export function SurvivorMesh() {
 
     if (targetPos) {
       const targetVec = new THREE.Vector3(...targetPos);
-      const dist = currentPos.current.distanceTo(targetVec);
+      const dx = targetVec.x - currentPos.current.x;
+      const dz = targetVec.z - currentPos.current.z;
+      const dist = Math.hypot(dx, dz);
 
-      if (dist > 0.1) {
+      if (dist > 0.15) {
         isMoving = true;
-        const speed = onLand ? 3.2 : 1.6;
-        currentPos.current.lerp(targetVec, 1 - Math.exp(-speed * delta));
+        
+        // Steady fixed units/second (no teleporting across long distances)
+        const moveSpeed = onLand ? 3.4 : 1.8;
+        const step = Math.min(dist, moveSpeed * delta);
+
+        // Linear constant velocity
+        currentPos.current.x += (dx / dist) * step;
+        currentPos.current.z += (dz / dist) * step;
 
         root.position.x = currentPos.current.x;
         root.position.z = currentPos.current.z;
 
-        const dx = targetVec.x - currentPos.current.x;
-        const dz = targetVec.z - currentPos.current.z;
-
-        if (Math.abs(dx) + Math.abs(dz) > 0.001) {
-          const targetRot = Math.atan2(dx, dz);
-          root.rotation.y = THREE.MathUtils.lerp(
-            root.rotation.y,
-            targetRot,
-            1 - Math.exp(-12 * delta)
-          );
-        }
+        // Direct angle towards waypoint (no Math.PI offset)
+        const targetRot = Math.atan2(dx, dz);
+        const diff = Math.atan2(
+          Math.sin(targetRot - root.rotation.y),
+          Math.cos(targetRot - root.rotation.y)
+        );
+        root.rotation.y += diff * (1 - Math.exp(-10 * delta));
 
         updateStorePos([currentPos.current.x, currentPos.current.y, currentPos.current.z]);
 
@@ -100,6 +111,7 @@ export function SurvivorMesh() {
           setAnimState('WALK');
         }
       } else {
+        // Arrived at destination waypoint
         if (!onLand) {
           if (animState !== 'SWIM') setAnimState('SWIM');
         } else if (animState === 'WALK' || animState === 'SWIM') {
@@ -108,7 +120,7 @@ export function SurvivorMesh() {
       }
     }
 
-    // Submersion calibration: -0.72 puts chest/shoulders right at the -0.30 waterline
+    // Submersion elevation
     const targetY = onLand ? 0.0 : -0.72;
     currentPos.current.y = THREE.MathUtils.lerp(currentPos.current.y, targetY, 1 - Math.exp(-6 * delta));
 
@@ -142,22 +154,21 @@ export function SurvivorMesh() {
     tool.visible = effectiveState === 'CHOP';
 
     // -------------------------------------------------------------
-    // SWIMMING KINEMATICS (Prone Front Crawl, Face Forward)
+    // SWIMMING KINEMATICS (Face +Z forward, positive X pitch into water)
     // -------------------------------------------------------------
     if (effectiveState === 'SWIM') {
       swimTime.current += delta * (isMoving ? 5.5 : 2.5);
       const sw = swimTime.current;
 
-      // Realistic water buoyancy bobbing
       const buoyancy = Math.sin(sw * 2.0) * 0.03;
       root.position.y = currentPos.current.y + buoyancy;
 
-      // Pitch FORWARD into water (Negative X tilts face-down/prone)
-      root.rotation.x = THREE.MathUtils.lerp(root.rotation.x, -1.25, 1 - Math.exp(-6 * delta));
+      // Positive X rotation pitches the +Z face down into the water
+      root.rotation.x = THREE.MathUtils.lerp(root.rotation.x, Math.PI / 2.5, 1 - Math.exp(-6 * delta));
       root.rotation.z = Math.sin(sw) * 0.08;
 
-      // Tilt head UP/BACK relative to the angled body so face looks forward over the water
-      head.rotation.x = 0.65;
+      // Head looks UP and forward relative to the angled body
+      head.rotation.x = -0.65;
       head.rotation.y = Math.sin(sw * 0.5) * 0.12;
 
       chest.rotation.set(0, 0, 0);
@@ -165,7 +176,7 @@ export function SurvivorMesh() {
       hips.position.y = 0.46;
       hips.rotation.set(0, 0, 0);
 
-      // Alternating overhand front crawl arm reach
+      // Front crawl arm strokes
       const strokeL = Math.sin(sw);
       const strokeR = Math.sin(sw + Math.PI);
 
@@ -231,6 +242,7 @@ export function SurvivorMesh() {
 
       if (pack) pack.rotation.x = Math.sin(w * 2) * 0.04;
     }
+
     // -------------------------------------------------------------
     // CHOPPING KINEMATICS
     // -------------------------------------------------------------
@@ -261,31 +273,28 @@ export function SurvivorMesh() {
       lsh.rotation.set(0.15, 0, 0);
       rsh.rotation.set(0.25, 0, 0);
     }
+
     // -------------------------------------------------------------
-    // SLEEPING KINEMATICS (Flat ground rest)
+    // SLEEPING KINEMATICS
     // -------------------------------------------------------------
     else if (effectiveState === 'SLEEP') {
-      // Keep root flat on the ground plane
       root.position.y = 0.12;
-      root.rotation.x = -Math.PI / 2; // Flat on back/ground
+      root.rotation.x = -Math.PI / 2;
       root.rotation.z = 0;
 
       const breathe = Math.sin(t * 1.8) * 0.03;
       chest.scale.set(1 + breathe, 1 + breathe, 1);
 
-      // Relax spine and head flat on ground
       hips.position.y = 0.46;
       hips.rotation.set(0, 0, 0);
       chest.rotation.set(0, 0, 0);
       head.rotation.set(-0.1, Math.sin(t * 0.4) * 0.15, 0);
 
-      // Arms resting across abdomen / ground
       lua.rotation.set(0.1, 0, -0.4);
       rua.rotation.set(0.1, 0, 0.4);
       lfa.rotation.set(0.8, 0, 0);
       rfa.rotation.set(0.8, 0, 0);
 
-      // Legs laid out flat
       lth.rotation.set(-0.05, 0, -0.1);
       rth.rotation.set(-0.05, 0, 0.1);
       lsh.rotation.set(0.1, 0, 0);
@@ -293,7 +302,7 @@ export function SurvivorMesh() {
 
       if (pack) pack.rotation.x = 0;
     }
-    
+
     // -------------------------------------------------------------
     // IDLE KINEMATICS
     // -------------------------------------------------------------

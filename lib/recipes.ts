@@ -35,6 +35,21 @@ export const RECIPE_REGISTRY: Record<string, Recipe> = {
     category: 'consumable',
     inputs: { coconut: 1 },
     vitalImpact: { hunger: 25, energy: 10, health: 5 }
+  },
+  shelter: {
+    id: 'shelter',
+    name: 'Thatched A-Frame Shelter',
+    category: 'structure',
+    structureMeshType: 'shelter',
+    inputs: {
+      driftwood: 5,
+      palm_frond: 4,
+      limestone: 2
+    },
+    vitalImpact: {
+      energy: 25,
+      health: 10
+    }
   }
 };
 

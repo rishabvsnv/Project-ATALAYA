@@ -3,7 +3,15 @@
 import React, { useState } from 'react';
 import { ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
-import { useGameStore } from '@/lib/store';
+import { useGameStore, InterventionTool } from '@/lib/store';
+
+const ringColor: Record<InterventionTool, string> = {
+  INSPECT: '#38bdf8',
+  DROP_SUPPLY: '#fbbf24',
+  PLANT_NODE: '#4ade80',
+  ORDER_MOVE: '#f43f5e',
+  BUILD_HOUSE: '#a855f7'
+};
 
 export function InteractiveTerrain() {
   const plates = useGameStore((s) => s.plates);
@@ -11,7 +19,6 @@ export function InteractiveTerrain() {
   const setTargetPosition = useGameStore((s) => s.setTargetPosition);
   const spawnSupplyCrate = useGameStore((s) => s.spawnSupplyCrate);
   const plantCustomNode = useGameStore((s) => s.plantCustomNode);
-  const setSurvivorState = useGameStore((s) => s.setSurvivorState);
 
   const [cursorPos, setCursorPos] = useState<[number, number, number] | null>(null);
 
@@ -33,7 +40,6 @@ export function InteractiveTerrain() {
     switch (activeTool) {
       case 'ORDER_MOVE':
         setTargetPosition(pt);
-        // Will automatically transition to WALK or SWIM based on destination coordinates
         break;
       case 'DROP_SUPPLY':
         spawnSupplyCrate(pt);
@@ -41,19 +47,29 @@ export function InteractiveTerrain() {
       case 'PLANT_NODE':
         plantCustomNode(pt, Math.random() > 0.5 ? 'palm' : 'limestone');
         break;
+      case 'BUILD_HOUSE':
+        useGameStore.setState((s) => ({
+          structures: [
+            ...s.structures,
+            {
+              id: `struct_shelter_${Date.now()}`,
+              type: 'shelter',
+              position: [pt[0], 0, pt[2]],
+              rotationY: Math.random() * Math.PI * 2
+            }
+          ],
+          logs: [
+            `[God-Mode] Constructed Thatched Shelter at [${pt[0].toFixed(1)}, ${pt[2].toFixed(1)}]`,
+            ...s.logs.slice(0, 18)
+          ]
+        }));
+        break;
       case 'INSPECT':
       default:
         setTargetPosition(pt);
         break;
     }
   };
-
-  const ringColor = {
-    INSPECT: '#38bdf8',
-    DROP_SUPPLY: '#fbbf24',
-    PLANT_NODE: '#4ade80',
-    ORDER_MOVE: '#f43f5e'
-  }[activeTool];
 
   return (
     <group>
@@ -74,7 +90,7 @@ export function InteractiveTerrain() {
         </group>
       ))}
 
-      {/* Clickable Ocean Disc (Allows clicking into the sea to trigger SWIM) */}
+      {/* Clickable Ocean Disc */}
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, -0.3, 0]}
@@ -87,7 +103,8 @@ export function InteractiveTerrain() {
         <meshLambertMaterial
           color="#0284c7"
           transparent
-          opacity={0.8}
+          opacity={0.82}
+          depthWrite={false}
           flatShading
         />
       </mesh>
@@ -96,7 +113,12 @@ export function InteractiveTerrain() {
       {cursorPos && (
         <mesh position={cursorPos} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[0.4, 0.55, 24]} />
-          <meshBasicMaterial color={ringColor} side={THREE.DoubleSide} transparent opacity={0.8} />
+          <meshBasicMaterial
+            color={ringColor[activeTool]}
+            side={THREE.DoubleSide}
+            transparent
+            opacity={0.8}
+          />
         </mesh>
       )}
     </group>

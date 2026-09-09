@@ -14,9 +14,10 @@ export type SurvivorAnimState =
   | "SWIM";
 export type InterventionTool =
   | "INSPECT"
+  | 'ORDER_MOVE'
   | "DROP_SUPPLY"
   | "PLANT_NODE"
-  | "ORDER_MOVE";
+  | "BUILD_HOUSE";
 
 export interface JournalEntry {
   id: string;

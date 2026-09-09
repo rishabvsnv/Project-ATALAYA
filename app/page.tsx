@@ -2,16 +2,14 @@
 
 import React, { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { OrbitControls } from '@react-three/drei';
-import * as THREE from 'three';
 
-import { IslandScene } from '@/components/IslandScene';
 import { BentoHUD } from '@/components/BentoHUD';
-import { JournalModal } from '@/components/JournalModal'; // <--- 1. IMPORT
+import { JournalModal } from '@/components/JournalModal';
 import { useSimulationLoop } from '@/hooks/useSimulationLoop';
 
-const Canvas = dynamic(
-  () => import('@react-three/fiber').then((mod) => mod.Canvas),
+// Dynamically import the entire 3D Canvas context (client-only)
+const IslandCanvas = dynamic(
+  () => import('@/components/IslandCanvas').then((mod) => mod.IslandCanvas),
   { ssr: false }
 );
 
@@ -39,42 +37,14 @@ export default function AtalayaPage() {
 
   return (
     <main className="relative h-screen w-screen overflow-hidden bg-neutral-950 font-sans select-none">
+      {/* 3D Scene Viewport */}
+      <IslandCanvas />
+
       {/* 2D Glassmorphic Bento HUD */}
       <BentoHUD />
 
       {/* 2D Persistent Chronicles Modal */}
-      <JournalModal /> {/* <--- 2. RENDER HERE */}
-
-      {/* 3D Scene Viewport */}
-      <div className="absolute inset-0 h-full w-full">
-        <Canvas
-          shadows="basic"
-          dpr={[1, 1.5]}
-          camera={{
-            position: [18, 14, 18],
-            fov: 42,
-            near: 0.1,
-            far: 200
-          }}
-          gl={{
-            antialias: true,
-            toneMapping: THREE.ACESFilmicToneMapping
-          }}
-          className="h-full w-full"
-        >
-          <OrbitControls
-            makeDefault
-            target={[0, 0, 0]}
-            maxPolarAngle={Math.PI / 2.15}
-            minDistance={8}
-            maxDistance={38}
-            enableDamping
-            dampingFactor={0.06}
-            enablePan={false}
-          />
-          <IslandScene />
-        </Canvas>
-      </div>
+      <JournalModal />
     </main>
   );
 }
