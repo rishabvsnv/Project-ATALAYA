@@ -132,9 +132,24 @@ export function SurvivorMesh() {
       }
     }
 
-    // Submersion elevation
+    // -------------------------------------------------------------
+    // SHORELINE ELEVATION & SHORE CLIMBING CALIBRATION
+    // -------------------------------------------------------------
     const targetY = onLand ? 0.0 : -0.72;
-    currentPos.current.y = THREE.MathUtils.lerp(currentPos.current.y, targetY, 1 - Math.exp(-6 * delta));
+
+    // Ascend up onto land much faster than sinking into water (prevents ground clipping)
+    const elevationSpeed = onLand ? 14.0 : 5.0;
+    currentPos.current.y = THREE.MathUtils.lerp(
+      currentPos.current.y,
+      targetY,
+      1 - Math.exp(-elevationSpeed * delta)
+    );
+
+    // If on land and still slightly submerged from water exit, clamp to prevent dipping below ground
+    if (onLand && currentPos.current.y < 0) {
+      // Rapidly pull feet above ground level
+      currentPos.current.y = THREE.MathUtils.lerp(currentPos.current.y, 0.0, 1 - Math.exp(-18 * delta));
+    }
 
     let effectiveState: SurvivorAnimState = animState;
     if (!onLand) {
@@ -215,8 +230,9 @@ export function SurvivorMesh() {
     // WALKING KINEMATICS
     // -------------------------------------------------------------
     else if (effectiveState === 'WALK') {
-      root.rotation.x = THREE.MathUtils.lerp(root.rotation.x, 0, 1 - Math.exp(-8 * delta));
-      root.rotation.z = THREE.MathUtils.lerp(root.rotation.z, 0, 1 - Math.exp(-8 * delta));
+      // Faster recovery to upright posture when stepping out of water
+      root.rotation.x = THREE.MathUtils.lerp(root.rotation.x, 0, 1 - Math.exp(-14 * delta));
+      root.rotation.z = THREE.MathUtils.lerp(root.rotation.z, 0, 1 - Math.exp(-14 * delta));
 
       walkTime.current += delta * 9.0;
       const w = walkTime.current;
@@ -226,7 +242,8 @@ export function SurvivorMesh() {
       const armL = Math.sin(w + Math.PI + 0.1);
       const armR = Math.sin(w + 0.1);
 
-      root.position.y = currentPos.current.y + Math.abs(Math.sin(w * 2)) * 0.055;
+      // Keep feet anchored cleanly above island plate surface
+      root.position.y = Math.max(0, currentPos.current.y) + Math.abs(Math.sin(w * 2)) * 0.055;
       hips.position.y = 0.46;
       hips.rotation.z = Math.sin(w) * 0.06;
       hips.rotation.y = Math.sin(w) * 0.08;
