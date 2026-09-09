@@ -11,7 +11,8 @@ const ActionSchema = z.object({
     'REST',
     'DRINK',
     'EXPAND_TERRAIN',
-    'FARM_HARVEST'
+    'FARM_HARVEST',
+    'HUNT'
   ]).default('FORAGE'),
   target_id: z.string().nullable().default(null),
   recipe: z.string().nullable().default(null),
@@ -62,6 +63,11 @@ SURVIVAL STRATEGY & EVOLUTION:
 
 6. CHRONICLING:
    - Provide a poetic first-person past-tense "journal_log" when achieving milestones (forging a new tool, planting crops, harvesting food, building a shelter, terraforming). Otherwise keep null.
+
+7. HUNTING & FISHING:
+  - If hunger < 50 and wildlife_nearby contains entities:
+    - Target crab on shorelines or fish in shallows using action_type "HUNT" with "target_id".
+    - If fishing_spear is equipped, hunting succeeds efficiently.
 
 Respond ONLY with a valid JSON object matching this schema:
 {

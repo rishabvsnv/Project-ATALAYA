@@ -75,6 +75,14 @@ export interface IslandNode {
   health: number;
 }
 
+export interface FaunaEntity {
+  id: string;
+  type: 'crab' | 'fish';
+  position: [number, number, number];
+  velocity: [number, number, number];
+  health: number;
+}
+
 export interface GameState {
   day: number;
   timeOfDay: TimePhase;
@@ -90,6 +98,9 @@ export interface GameState {
   inventory: Record<string, number>;
   equippedTool: EquippedToolType;
   equipTool: (tool: EquippedToolType) => void;
+  wildlife: FaunaEntity[];
+  setWildlife: (wildlife: FaunaEntity[]) => void;
+  harvestWildlife: (id: string) => void;
   survivorPosition: [number, number, number];
   targetPosition: [number, number, number] | null;
   survivorState: SurvivorAnimState;
@@ -169,6 +180,13 @@ const INITIAL_JOURNAL: JournalEntry[] = [
   },
 ];
 
+const INITIAL_WILDLIFE: FaunaEntity[] = [
+  { id: "crab_1", type: "crab", position: [5, 0.05, 3], velocity: [0, 0, 0], health: 1 },
+  { id: "crab_2", type: "crab", position: [-4, 0.05, 4], velocity: [0, 0, 0], health: 1 },
+  { id: "fish_1", type: "fish", position: [9, -0.45, 2], velocity: [0.5, 0, 0.5], health: 1 },
+  { id: "fish_2", type: "fish", position: [-8, -0.45, -5], velocity: [-0.4, 0, 0.3], health: 1 },
+];
+
 export const useGameStore = create<GameState>()(
   persist(
     (set, get) => ({
@@ -192,6 +210,14 @@ export const useGameStore = create<GameState>()(
       inventory: { driftwood: 8, flint: 4, palm_frond: 6, limestone: 5 },
       equippedTool: null,
       equipTool: (equippedTool) => set({ equippedTool }),
+
+      wildlife: INITIAL_WILDLIFE,
+      setWildlife: (wildlife) => set({ wildlife }),
+      harvestWildlife: (id) =>
+        set((s) => ({
+          wildlife: s.wildlife.filter((w) => w.id !== id),
+        })),
+        
       survivorPosition: [0, 0, 0],
       targetPosition: null,
       survivorState: "IDLE",

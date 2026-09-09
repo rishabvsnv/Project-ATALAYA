@@ -10,6 +10,7 @@ import { SurvivorMesh } from '@/components/SurvivorMesh';
 import { WeatherFX } from './WeatherFX';
 import { InteractiveTerrain } from './InteractiveTerrain';
 import { WaterRipples } from './WaterRipples';
+import { WildlifeRenderer } from './WildlifeRenderer';
 
 export function IslandScene() {
   const nodes = useGameStore((s) => s.nodes);
@@ -64,6 +65,8 @@ export function IslandScene() {
 
       {/* World Structures (Campfires, Shelters, Benches) */}
       <WorldStructures />
+
+      <WildlifeRenderer />
 
       {/* Survivor Character */}
       <SurvivorMesh />

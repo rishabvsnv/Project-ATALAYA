@@ -69,7 +69,12 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
             n.position[2] - state.survivorPosition[2]
           ).toFixed(2)
         )
-      }))
+      })),
+      wildlife_nearby: state.wildlife.map((w) => ({
+        id: w.id,
+        type: w.type,
+        position: w.position
+      })),
     };
 
     // Environmental impacts
@@ -304,6 +309,38 @@ export function useSimulationLoop(baseIntervalMs = 5000) {
           }
         );
         return;
+      }
+
+      // 8. Hunting & Fishing Execution
+      if (action.action_type === 'HUNT') {
+        const targetFauna = state.wildlife.find((w) => w.id === action.target_id) ?? state.wildlife[0];
+
+        if (targetFauna) {
+          state.setTargetPosition(targetFauna.position);
+          const hasSpear = state.equippedTool === 'fishing_spear';
+
+          // Spear grants guaranteed high catch, bare hands can fail or yield less
+          const dropItem = targetFauna.type === 'crab' ? 'crab_meat' : 'raw_fish';
+          const amount = hasSpear ? 2 : 1;
+          const currentCount = state.inventory[dropItem] ?? 0;
+
+          state.harvestWildlife(targetFauna.id);
+
+          state.applyActionOutcome(
+            action.thought_monologue,
+            hasSpear
+              ? `Speared a ${targetFauna.type} cleanly! (+${amount} ${dropItem})`
+              : `Caught a ${targetFauna.type} by hand with great effort. (+${amount} ${dropItem})`,
+            {
+              hunger: 15,
+              energy: hasSpear ? -6 : -14,
+              hydration: -4,
+              health: 0
+            },
+            { [dropItem]: currentCount + amount }
+          );
+          return;
+        }
       }
 
       // 8. Resting Fallback
